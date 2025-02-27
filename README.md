@@ -31,7 +31,7 @@ Android NDK and CMake can be installed via Android Studio:
 ## Setup and Run with Android Studio
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/your-vulkan-project.git
+   git clone https://github.com/rpineda26/androidProceduralAnimationIK.git
    cd your-vulkan-project
    ```
 
@@ -61,7 +61,7 @@ Android NDK and CMake can be installed via Android Studio:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/your-vulkan-project.git
+   git clone https://github.com/rpineda26/androidProceduralAnimationIK.git
    cd your-vulkan-project
    ```
 
