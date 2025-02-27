@@ -3,7 +3,7 @@ android renderer using vulkan api
 
 ## Prerequisites
 
-* Android SDK 26 or higher
+* Android SDK 26 (Android 8.0) or higher
 * Android NDK r21 or newer
 * CMake 3.10.2+
 * JDK 11+
@@ -13,7 +13,7 @@ Android NDK and CMake can be installed via Android Studio:
 1. Open **Android Studio**  
 2. Go to **Tools** -> **SDK Manager**  
 3. Navigate to **Android SDK** -> **SDK Tools**  
-4. Check the required tools (e.g., CMake, NDK, Ninja)  
+4. Check the required tools (e.g., CMake, NDK)  
 5. Click **Apply** to install
 
 **Set up environment variables**
@@ -21,9 +21,9 @@ Android NDK and CMake can be installed via Android Studio:
    # For macOS/Linux
     export ANDROID_HOME=~/path/to/android/sdk
     export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/[version]
-  
-    # Optional: Set up paths if using your own CMake, or build with the command line using platform tools, or build tools
     export PATH=$PATH:$ANDROID_HOME/cmake/[version]/bin
+    # Optional: Set up paths if using your own CMake, or build with the command line using platform tools, or build tools
+    
     export PATH=$PATH:$ANDROID_HOME/platform-tools
     export PATH=$PATH:$ANDROID_HOME/build-tools/[version]
    ```
