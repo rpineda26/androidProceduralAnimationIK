@@ -20,7 +20,7 @@ android {
                 arguments(
                     "-DANDROID_TOOLCHAIN=clang",
 //                    "-DANDROID_STL=c++_static",  // Change this from c++_static to c++_shared
-                    "-DVKB_VALIDATION_LAYERS=OFF"
+                    "-DVKB_VALIDATION_LAYERS=ON",
                 )
                 abiFilters("arm64-v8a")
             }
@@ -47,6 +47,7 @@ android {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
             version = "3.22.1"
+
         }
     }
     buildFeatures {

@@ -1,6 +1,7 @@
 package com.mslabs.pineda.vulkanandroid
 
 import android.annotation.SuppressLint
+import android.content.pm.ActivityInfo
 import android.os.Build.VERSION
 import android.os.Build.VERSION_CODES
 import android.view.KeyEvent
@@ -9,6 +10,7 @@ import android.view.WindowManager.LayoutParams
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import android.os.Bundle
+import android.view.WindowManager
 import com.mslabs.pineda.vulkanandroid.databinding.ActivityMainBinding
 import com.google.androidgamesdk.GameActivity;
 
@@ -18,8 +20,9 @@ class MainActivity : GameActivity() {
 
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
+//            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             hideSystemUI()
-
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             // Example of a call to a native method
         }
 

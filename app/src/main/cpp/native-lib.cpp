@@ -13,17 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+//#include "engine.h"
+#include "first_app.hpp"
+#include "debug.hpp"
+#include "ve_imgui.hpp"
+
 
 #include <android/asset_manager_jni.h>
 #include <android/native_window_jni.h>
 #include <game-activity/native_app_glue/android_native_app_glue.h>
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <iostream>
-
-#include "engine.h"
 
 /*
  * Shared state for the app. This will be accessed within lifecycle callbacks
@@ -41,7 +44,8 @@
  */
 struct VulkanEngine {
     struct android_app *app;
-    vkt::HelloVK *app_backend;
+//    vkt::HelloVK *app_backend;
+    ve::FirstApp *app_backend;
     bool canRender = false;
 };
 
@@ -54,8 +58,10 @@ static void HandleCmd(struct android_app *app, int32_t cmd) {
     switch (cmd) {
         case APP_CMD_START:
             if (engine->app->window != nullptr) {
+//                engine->app_backend->reset(app->window, app->activity->assetManager);
+//                engine->app_backend->initVulkan();
                 engine->app_backend->reset(app->window, app->activity->assetManager);
-                engine->app_backend->initVulkan();
+                engine->app_backend->init();
                 engine->canRender = true;
             }
         case APP_CMD_INIT_WINDOW:
@@ -64,9 +70,9 @@ static void HandleCmd(struct android_app *app, int32_t cmd) {
             if (engine->app->window != nullptr) {
                 LOGI("Setting a new surface");
                 engine->app_backend->reset(app->window, app->activity->assetManager);
-                if (!engine->app_backend->initialized) {
+                if (!engine->app_backend->isInitialized()) {
                     LOGI("Starting application");
-                    engine->app_backend->initVulkan();
+                    engine->app_backend->init();
                 }
                 engine->canRender = true;
             }
@@ -78,7 +84,7 @@ static void HandleCmd(struct android_app *app, int32_t cmd) {
         case APP_CMD_DESTROY:
             // The window is being hidden or closed, clean it up.
             LOGI("Destroying");
-            engine->app_backend->cleanup();
+//            engine->app_backend->cleanup();
         default:
             break;
     }
@@ -107,12 +113,23 @@ static void HandleInputEvents(struct android_app *app) {
     if (inputBuf == nullptr) {
         return;
     }
+    LOGI("INPUT EVENT OCCURED");
+    auto *engine = (VulkanEngine *)app->userData;
+    if(engine->app_backend->isInitialized()) {
 
+        for (int i = 0; i < inputBuf->motionEventsCount; i++) {
+            auto event = &inputBuf->motionEvents[i];
+            if(!ve::VeImGui::handleInput(event)) {
+                engine->app_backend->inputHandler.handleTouchEvent(event);
+                engine->app_backend->controlCamera();
+            }
+
+        }
+    }
     // For the minimum, apps need to process the exit event (for example,
     // listening to AKEYCODE_BACK). This sample has done that in the Kotlin side
     // and not processing other input events, we just reset the event counter
     // inside the android_input_buffer to keep app glue code in a working state.
-    android_app_clear_motion_events(inputBuf);
     android_app_clear_motion_events(inputBuf);
 }
 
@@ -123,15 +140,15 @@ static void HandleInputEvents(struct android_app *app) {
  */
 void android_main(struct android_app *state) {
     VulkanEngine engine{};
-    vkt::HelloVK vulkanBackend{};
-
+//    vkt::HelloVK vulkanBackend{};
+    ve::FirstApp vulkanBackend{};
     engine.app = state;
     engine.app_backend = &vulkanBackend;
     state->userData = &engine;
     state->onAppCmd = HandleCmd;
 
-    android_app_set_key_event_filter(state, VulkanKeyEventFilter);
-    android_app_set_motion_event_filter(state, VulkanMotionEventFilter);
+    android_app_set_key_event_filter(state, nullptr);
+    android_app_set_motion_event_filter(state, nullptr);
 
     while (true) {
         int ident;
@@ -146,6 +163,7 @@ void android_main(struct android_app *state) {
 
         HandleInputEvents(state);
 
-        engine.app_backend->render();
+//        engine.app_backend->render();
+        engine.app_backend->run();
     }
 }
