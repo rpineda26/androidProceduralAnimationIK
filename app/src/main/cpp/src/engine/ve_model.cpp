@@ -118,9 +118,7 @@ namespace ve{
         if(hasAnimation){
             animationManager->update(deltaTime, *skeleton, frameCounter);
             skeleton->update();
-            //update buffer
-            shaderJointsBuffer[frameIndex]->writeToBuffer(skeleton->jointMatrices.data(), sizeof(glm::mat4) * skeleton->jointMatrices.size(), 0);
-            shaderJointsBuffer[frameIndex]->flush();
+
 
         }
     }
@@ -692,18 +690,6 @@ namespace ve{
             int rootJoint = skin.joints[0];
             loadJoints(rootJoint, -1, model);
             // updateJointHierarchy(model);
-        }
-        //create shader buffer
-        uint32_t numJoints = static_cast<uint32_t>(skeleton->joints.size());
-        uint32_t jointSize = static_cast<uint32_t>(sizeof(glm::mat4));
-        shaderJointsBuffer.resize(ve::VeSwapChain::MAX_FRAMES_IN_FLIGHT);
-        for(int i=0;i<shaderJointsBuffer.size();i++){
-            shaderJointsBuffer[i] = std::make_unique<VeBuffer>(veDevice, 
-                                                                numJoints * jointSize, 1, 
-                                                                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-                                                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 
-                                                                veDevice.properties.limits.minUniformBufferOffsetAlignment);
-            shaderJointsBuffer[i]->map();
         }
         
     }

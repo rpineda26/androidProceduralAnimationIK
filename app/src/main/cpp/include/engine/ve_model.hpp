@@ -72,7 +72,7 @@ namespace ve{
 
         std::unique_ptr<Skeleton> skeleton;
         std::shared_ptr<AnimationManager> animationManager;
-        std::vector<std::unique_ptr<VeBuffer>> shaderJointsBuffer;
+
 
     private:
         void createVertexBuffers(const std::vector<Vertex>& vertices);

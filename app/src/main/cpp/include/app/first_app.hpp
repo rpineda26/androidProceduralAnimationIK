@@ -8,15 +8,20 @@
 #include "ve_descriptors.hpp"
 #include "ve_texture.hpp"
 #include "ve_normal_map.hpp"
+#include "buffer.hpp"
+#include "input_handler.hpp"
+
+//render systems
 #include "pbr_render_system.hpp"
 #include "point_light_system.hpp"
 #include "outline_highlight_system.hpp"
 #include "cube_map_system.hpp"
-#include "buffer.hpp"
-#include "input_handler.hpp"
+#include "skeleton_system.hpp"
+
 //core libraries
 #include <android/asset_manager.h>
 #include <vulkan/vulkan.h>
+
 //std
 #include <chrono>
 #include <memory>
@@ -35,7 +40,7 @@ namespace ve {
             int cubeMapIndex{3};
             int animatedObjIndex{1};
             int selectedObject{1};
-            bool showOutlignHighlight{false};
+            bool showOutlignHighlight{true};
             bool engineInitialized{false};
             VeCamera camera{};
             VeGameObject viewerObject = VeGameObject::createGameObject();
@@ -92,9 +97,6 @@ namespace ve {
             //texture descriptor
             std::unique_ptr<VeDescriptorSetLayout> textureSetLayout;
             VkDescriptorSet textureDescriptorSet = VK_NULL_HANDLE;
-            //animation joint matrices
-            std::unique_ptr<VeDescriptorSetLayout> animationSetLayout;
-            std::vector<VkDescriptorSet> animationDescriptorSets;
 
             //texture info
             std::vector<std::unique_ptr<VeTexture>> textures;
@@ -109,6 +111,7 @@ namespace ve {
             std::unique_ptr<PointLightSystem> pointLightSystem;
             std::unique_ptr<OutlineHighlightSystem> outlineHighlightSystem;
             std::unique_ptr<CubeMapRenderSystem> cubeMapRenderSystem;
+            std::unique_ptr<SkeletonSystem> skeletonSystem;
 
             //scene entities
             VeGameObject::Map gameObjects;

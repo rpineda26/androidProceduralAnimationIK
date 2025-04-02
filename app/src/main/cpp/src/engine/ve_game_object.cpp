@@ -1,7 +1,10 @@
 #include "ve_game_object.hpp"
 #include "debug.hpp"
+#include "ve_swap_chain.hpp" //just to get the max frames in flight
 #include <iostream>
 
+//@todo: compile user defined constants to a separate file
+// (like frames inflight, max num lights, max joints
 namespace ve{
     glm::mat4 TransformComponent::mat4() {
         const float c3 = glm::cos(rotation.z);
@@ -143,5 +146,48 @@ namespace ve{
             .build(cubeObj.cubeMapComponent->descriptorSet);
         LOGI("Cubemap created");
         return cubeObj;
+    }
+    VeGameObject VeGameObject::createAnimatedObject(VeDevice& device, VeDescriptorPool& descriptorPool, std::shared_ptr<VeModel> veModel){
+        VeGameObject cubeObj = VeGameObject::createGameObject();
+        cubeObj.model = veModel;
+        AnimationComponent animationComponent{};
+        uint32_t maxJoints = 100;  // Define the max number of joints
+        uint32_t numJoints = std::min(static_cast<uint32_t>(veModel->skeleton->joints.size()), maxJoints);
+        auto jointSize = static_cast<uint32_t>(sizeof(glm::mat4));
+        animationComponent.shaderJointsBuffer.resize(ve::VeSwapChain::MAX_FRAMES_IN_FLIGHT);
+        for (int i = 0; i < animationComponent.shaderJointsBuffer.size(); i++) {
+            animationComponent.shaderJointsBuffer[i] = std::make_unique<VeBuffer>(device,
+                                                               numJoints * jointSize, 1,
+                                                               VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                                                               device.properties.limits.minUniformBufferOffsetAlignment);
+            animationComponent.shaderJointsBuffer[i]->map();
+        }
+
+        animationComponent.animationSetLayout = VeDescriptorSetLayout::Builder(device)
+                .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1)
+                .build();
+        animationComponent.animationDescriptorSets.resize(VeSwapChain::MAX_FRAMES_IN_FLIGHT);
+        for(int i = 0; i < animationComponent.animationDescriptorSets.size(); i++){
+            auto bufferInfo2 = animationComponent.shaderJointsBuffer[i]->descriptorInfo();
+            VeDescriptorWriter(*animationComponent.animationSetLayout, descriptorPool)
+                    .writeBuffer(0,&bufferInfo2)
+                    .build(animationComponent.animationDescriptorSets[i]);
+        }
+        cubeObj.animationComponent = std::make_unique<AnimationComponent>(std::move(animationComponent));
+        LOGI("Animated Object created");
+        return cubeObj;
+    }
+    void VeGameObject::updateAnimation(float deltaTime, int frameCounter, int frameIndex){
+        model->updateAnimation(deltaTime, frameCounter, frameIndex);
+        const uint32_t maxJoints = 100;
+        uint32_t numJoints = std::min(static_cast<uint32_t>(model->skeleton->jointMatrices.size()), maxJoints);
+
+        animationComponent->shaderJointsBuffer[frameIndex]->writeToBuffer(
+                static_cast<void*>(model->skeleton->jointMatrices.data()),
+                numJoints * sizeof(glm::mat4)  // Only copy the required size
+        );
+
+        animationComponent->shaderJointsBuffer[frameIndex]->flush();
     }
 }

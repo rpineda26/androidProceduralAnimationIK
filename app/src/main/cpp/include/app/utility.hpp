@@ -61,56 +61,12 @@ namespace ve{
         }
         preLoadedModels.clear();
     }
-    inline void renderGameObjectDetails(VeGameObject& gameObject){
+    inline void renderGameObjectDetails(VeGameObject& gameObject, bool& isHighlight){
         ImGui::SetNextWindowSize(ImVec2(650, 600), ImGuiCond_FirstUseEver);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 1);
         ImGui::Begin("Game Object Inspector",  nullptr,   ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
-
-        // Physical Properties Section
-        if (ImGui::CollapsingHeader("Physical Properties")) {
-            // Position
-            ImGui::Text("Position:");
-            ImGui::SameLine();
-            ImGui::Text("(%.2f, %.2f, %.2f)",
-                        gameObject.transform.translation.x,
-                        gameObject.transform.translation.y,
-                        gameObject.transform.translation.z
-            );
-
-            // Scale
-            ImGui::Text("Scale:");
-            ImGui::SameLine();
-            ImGui::Text("(%.2f, %.2f, %.2f)",
-                        gameObject.transform.scale.x,
-                        gameObject.transform.scale.y,
-                        gameObject.transform.scale.z
-            );
-
-            // Rotation (assuming using Euler angles or quaternion)
-            ImGui::Text("Rotation:");
-            ImGui::SameLine();
-            ImGui::Text("(%.2f, %.2f, %.2f)",
-                        gameObject.transform.rotation.x,
-                        gameObject.transform.rotation.y,
-                        gameObject.transform.rotation.z
-            );
-
-            // Optional: Editable input fields
-            static glm::vec3 editPosition = gameObject.transform.translation;
-            static glm::vec3 editScale = gameObject.transform.scale;
-            static glm::vec3 editRotation = gameObject.transform.rotation;
-
-            ImGui::InputFloat3("Edit Position", &editPosition.x);
-            ImGui::InputFloat3("Edit Scale", &editScale.x);
-            ImGui::InputFloat3("Edit Rotation", &editRotation.x);
-
-            if (ImGui::Button("Apply Changes")) {
-                gameObject.transform.translation = editPosition;
-                gameObject.transform.scale = editScale;
-                gameObject.transform.rotation = editRotation;
-            }
-        }
+        ImGui::Checkbox("Highlight joints", &isHighlight);
 
         // Animation Section
         if (ImGui::CollapsingHeader("Animation")) {
@@ -196,7 +152,9 @@ namespace ve{
             ImGui::Text("Select a model: ");
             for(const auto& model: modelFileNames){
                 if(ImGui::Selectable(model.c_str())){
+                    gameObject.model->animationManager->stop();
                     gameObject.model = preLoadedModels[model];
+                    gameObject.model->animationManager->start();
                     ImGui::CloseCurrentPopup();
                 }
             }

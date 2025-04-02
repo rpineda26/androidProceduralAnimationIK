@@ -78,26 +78,15 @@ namespace ve {
             .writeImage(1, normalMapInfos.data(),3)
             .writeImage(2, specularMapInfos.data(),3)
             .build(textureDescriptorSet);
-        //animation descriptor
-        animationSetLayout = VeDescriptorSetLayout::Builder(*veDevice)
-                .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1)
-                .build();
-        animationDescriptorSets.resize(VeSwapChain::MAX_FRAMES_IN_FLIGHT);
-        for(int i = 0; i < animationDescriptorSets.size(); i++){
-            auto bufferInfo2 = gameObjects.at(engineInfo.animatedObjIndex).model->shaderJointsBuffer[i]->descriptorInfo();
-            VeDescriptorWriter(*animationSetLayout, *globalPool)
-                .writeBuffer(0,&bufferInfo2)
-                .build(animationDescriptorSets[i]);
-        }
 
         //init render systems
         pbrRenderSystem = std::make_unique<PbrRenderSystem>(*veDevice, assetManager.get(), veRenderer->getSwapChainRenderPass(),
-            std::vector<VkDescriptorSetLayout>{globalSetLayout->getDescriptorSetLayout(), textureSetLayout->getDescriptorSetLayout(), animationSetLayout->getDescriptorSetLayout()});
+            std::vector<VkDescriptorSetLayout>{globalSetLayout->getDescriptorSetLayout(), textureSetLayout->getDescriptorSetLayout(), gameObjects.at(engineInfo.animatedObjIndex).animationComponent->animationSetLayout->getDescriptorSetLayout()});
         pointLightSystem = std::make_unique<PointLightSystem>(*veDevice, assetManager.get(), veRenderer->getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout());
         outlineHighlightSystem = std::make_unique<OutlineHighlightSystem>(*veDevice, assetManager.get(), veRenderer->getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout());
         cubeMapRenderSystem = std::make_unique<CubeMapRenderSystem>(*veDevice, assetManager.get(), veRenderer->getSwapChainRenderPass(),
             std::vector<VkDescriptorSetLayout>{globalSetLayout->getDescriptorSetLayout(), gameObjects.at(engineInfo.cubeMapIndex).cubeMapComponent->descriptorSetLayout->getDescriptorSetLayout()});
-
+        skeletonSystem = std::make_unique<SkeletonSystem>(*veDevice, assetManager.get(), veRenderer->getSwapChainRenderPass(), std::vector<VkDescriptorSetLayout>{globalSetLayout->getDescriptorSetLayout()});
         //edit starting camera setup
 //        engineInfo.viewerObject.transform.translation ={-1.42281f,-10.1585,0.632};
 //        engineInfo.viewerObject.transform.rotation = {-1.33747,1.56693f,0.0f};
@@ -156,11 +145,12 @@ namespace ve {
         if(auto commandBuffer = veRenderer->beginFrame()){
             //start new imgui frame
             VeImGui::initializeImGuiFrame();
+//            ImGui::ShowDemoWindow();
             engineInfo.numLights = getNumLights();
-            renderGameObjectDetails(gameObjects.at(engineInfo.animatedObjIndex));
+            renderGameObjectDetails(gameObjects.at(engineInfo.animatedObjIndex), engineInfo.showOutlignHighlight);
             //record frame data
             int frameIndex = veRenderer->getFrameIndex();
-            FrameInfo frameInfo{frameIndex, engineInfo.frameTime, engineInfo.elapsedTime, commandBuffer, engineInfo.camera, globalDescriptorSets[frameIndex], gameObjects, engineInfo.selectedObject, engineInfo.numLights, engineInfo.showOutlignHighlight};
+            FrameInfo frameInfo{frameIndex, engineInfo.frameTime, engineInfo.elapsedTime, commandBuffer, engineInfo.camera, globalDescriptorSets[frameIndex], gameObjects, engineInfo.animatedObjIndex, engineInfo.numLights, engineInfo.showOutlignHighlight};
             //update global UBO
             GlobalUbo globalUbo{};
             globalUbo.projection = engineInfo.camera.getProjectionMatrix();
@@ -172,15 +162,20 @@ namespace ve {
             uniformBuffers[frameIndex]->writeToBuffer(&globalUbo);
             uniformBuffers[frameIndex]->flush();
             //update animation
-            gameObjects.at(engineInfo.animatedObjIndex).model->updateAnimation(engineInfo.frameTime, engineInfo.frameCount, frameIndex);
+            gameObjects.at(engineInfo.animatedObjIndex).updateAnimation(engineInfo.frameTime, engineInfo.frameCount, frameIndex);
 
             //render scene
             veRenderer->beginSwapChainRenderPass(commandBuffer);
-            pbrRenderSystem->renderGameObjects(frameInfo, /*shadowRenderSystem.getShadowDescriptorSet(frameIndex),*/ {globalDescriptorSets[frameIndex], textureDescriptorSet, animationDescriptorSets[frameIndex]});
-            pointLightSystem->render(frameInfo);
-            if(engineInfo.showOutlignHighlight)
+
+            if(engineInfo.showOutlignHighlight) {
                 outlineHighlightSystem->renderGameObjects(frameInfo);
+                skeletonSystem->renderJoints(frameInfo, {globalDescriptorSets[frameIndex]});
+                skeletonSystem->renderJointConnections(frameInfo, {globalDescriptorSets[frameIndex]});
+            }else
+                pbrRenderSystem->renderGameObjects(frameInfo, /*shadowRenderSystem.getShadowDescriptorSet(frameIndex),*/ {globalDescriptorSets[frameIndex], textureDescriptorSet, gameObjects.at(engineInfo.animatedObjIndex).animationComponent->animationDescriptorSets[frameIndex]});
+            pointLightSystem->render(frameInfo);
             cubeMapRenderSystem->renderGameObjects(frameInfo);
+
             VeImGui::renderImGuiFrame(commandBuffer);
             veRenderer->endSwapChainRenderPass(commandBuffer);
             veRenderer->endFrame();
@@ -189,23 +184,24 @@ namespace ve {
 //        LOGI("Rendering frame: %d", engineInfo.frameCount);
     }
     void FirstApp::controlCamera(){
-        LOGI("FirstApp controlCamera called");
+//        LOGI("FirstApp controlCamera called");
         inputHandler.processMovement(engineInfo.camera);
         InputHandler::CameraMovement sampleMovement = inputHandler.getCameraMovement();
-        LOGI("deltaX: %f, deltaY: %f, zoom: %f", sampleMovement.deltaX, sampleMovement.deltaY, sampleMovement.pinchScale);
+//        LOGI("deltaX: %f, deltaY: %f, zoom: %f", sampleMovement.deltaX, sampleMovement.deltaY, sampleMovement.pinchScale);
 
     }
 
     void FirstApp::loadGameObjects() {
-        auto fox = VeGameObject::createGameObject();
+        auto fox = VeGameObject::createAnimatedObject(*veDevice, *globalPool, preLoadedModels["Fox"]);
+//        auto fox = VeGameObject::createGameObject();
         fox.setTextureIndex(2);
         fox.setNormalIndex(2);
         fox.setSpecularIndex(2);
-        fox.model = preLoadedModels["Cute_Demon"];
+//        fox.model = preLoadedModels["Cute_Demon"];
         // fox.transform.translation = {0.5f, 0.5f, 0.0f};
         fox.transform.scale = {0.03f, 0.03f, 0.03f};
         // fox.color = {128.0f, 228.1f, 229.1f}; //cyan
-        fox.setTitle("Cute_Demon");
+        fox.setTitle("Fox");
         gameObjects.emplace(fox.getId(),std::move(fox));
         engineInfo.animatedObjIndex = fox.getId();
 

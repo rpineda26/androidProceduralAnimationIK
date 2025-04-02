@@ -16,7 +16,8 @@ namespace ve{
     struct TransformComponent{
         glm::vec3 translation{};
         glm::vec3 scale{1.0f,1.0f,1.0f};
-        glm::vec3 rotation = glm::vec3{glm::radians(180.0f),0.0f,0.0f};
+//        glm::vec3 rotation = glm::vec3{glm::radians(180.0f),0.0f,0.0f};
+        glm::vec3 rotation = glm::vec3{0.0f,0.0f,0.0f};
         glm::mat4 mat4();
         glm::mat3 normalMatrix();
     };
@@ -28,6 +29,12 @@ namespace ve{
         VkDescriptorSet descriptorSet;
         std::unique_ptr<VeDescriptorSetLayout> descriptorSetLayout;
     };
+    struct AnimationComponent{
+        std::unique_ptr<VeDescriptorSetLayout> animationSetLayout;
+        std::vector<VkDescriptorSet> animationDescriptorSets;
+        std::vector<std::unique_ptr<VeBuffer>> shaderJointsBuffer;
+    };
+
     class VeGameObject { 
         public:
             //user defined types
@@ -43,6 +50,10 @@ namespace ve{
             static VeGameObject createPointLight(float intensity=1.0f, float radius=0.1f, glm::vec3 color=glm::vec3(1.0f));
             //instantiation of cube map
             static VeGameObject createCubeMap(VeDevice& device, AAssetManager* assetManager, const std::vector<std::string>& faces, VeDescriptorPool& descriptorPool);
+            //instantiation of game object with animation
+            static VeGameObject createAnimatedObject(VeDevice& device, VeDescriptorPool& descriptorPool, std::shared_ptr<VeModel> veModel);
+            void updateAnimation(float deltaTime, int frameCounter, int frameIndex);
+
             VeGameObject(const VeGameObject&) = delete;
             VeGameObject& operator=(const VeGameObject&) = delete;
             VeGameObject(VeGameObject&&) = default;
@@ -55,6 +66,7 @@ namespace ve{
             std::shared_ptr<VeModel> model{};
             std::unique_ptr<PointLightComponent> lightComponent = nullptr;
             std::unique_ptr<CubeMapComponent> cubeMapComponent = nullptr;
+            std::unique_ptr<AnimationComponent> animationComponent = nullptr;
 
             //getters and setters
             id_t getId() { return id; }
