@@ -248,7 +248,7 @@ namespace ve {
 
                 push.startPos = parentPosWorldSpace;
                 push.endPos = childPosWorldSpace;
-                if((i-1==frameInfo.selectedJointIndex)|| (i ==frameInfo.selectedJointIndex))
+                if( i ==frameInfo.selectedJointIndex)
                     push.color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); // Highlight color
                 else
                     push.color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
