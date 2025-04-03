@@ -40,7 +40,8 @@ namespace ve {
             int cubeMapIndex{3};
             int animatedObjIndex{1};
             int selectedObject{1};
-            bool showOutlignHighlight{true};
+            int selectedJointIndex{-1};
+            bool showOutlignHighlight{false};
             bool engineInitialized{false};
             VeCamera camera{};
             VeGameObject viewerObject = VeGameObject::createGameObject();

@@ -35,7 +35,7 @@ layout(push_constant) uniform Push {
 float outline_thickness = 0.1;
 vec3 outline_color = vec3(1.0, 1.0, 0.3);
 void main(){
-    vec4 positionWorld = vec4(position + normal * outline_thickness, 1.0);
+    vec4 positionWorld = vec4(position - normal * outline_thickness , 1.0);
     positionWorld = push.modelMatrix * positionWorld;
     gl_Position = ubo.projectionMatrix * (ubo.viewMatrix * positionWorld);
 

@@ -106,12 +106,12 @@ namespace ve{
         ImGui::StyleColorsClassic();
     
         ImGuiIO& io = ImGui::GetIO(); (void)io;
-        // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable keyboard controls
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable gamepad controls
-
-        // Touch-specific configuration
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
         io.ConfigFlags |= ImGuiConfigFlags_IsTouchScreen;
+        io.MouseDoubleClickTime = 0.3f;
+        io.MouseDragThreshold = 15.0f;
+
         //setup renderer backend for imgui
         ImGui_ImplAndroid_Init(veWindow.getWindow());
         ImGui_ImplVulkan_InitInfo init_info = {};
@@ -130,7 +130,7 @@ namespace ve{
 
         ImGui_ImplVulkan_Init(&init_info);
         ImFontConfig font_cfg;
-        font_cfg.SizePixels = 22.0f;
+        font_cfg.SizePixels = 32.0f;
         io.Fonts->AddFontDefault(&font_cfg);
 
         ImGuiStyle &style = ImGui::GetStyle();
@@ -149,39 +149,79 @@ namespace ve{
         }
     }
     bool VeImGui::handleInput(const GameActivityMotionEvent* event) {
-        // First, let ImGui process the input
         ImGuiIO& io = ImGui::GetIO();
 
-        // Translate touch events to ImGui mouse events
+        // Static variables to track previous position and interaction state
+        static float lastX = 0.0f;
+        static float lastY = 0.0f;
+        static bool isDragging = false;
+        static float dragStartX = 0.0f;
+        static float dragStartY = 0.0f;
+        static int dragDirection = 0; // 0=undetermined, 1=horizontal, 2=vertical
+        static const float DIRECTION_THRESHOLD = 15.0f; // Pixels before locking direction
+
         switch (event->action & AMOTION_EVENT_ACTION_MASK) {
-            case AMOTION_EVENT_ACTION_DOWN: // First pointer down
-                io.AddMousePosEvent(event->pointers[0].rawX, event->pointers[0].rawY);
-                io.AddMouseButtonEvent(0, true);  // Left mouse button
-                // Return true if ImGui wants to capture the event
-                if (io.WantCaptureMouse) {
-                    return true;
-                }
+            case AMOTION_EVENT_ACTION_DOWN:
+                lastX = dragStartX = event->pointers[0].rawX;
+                lastY = dragStartY = event->pointers[0].rawY;
+                isDragging = true;
+                dragDirection = 0; // Reset direction on new drag
+                io.AddMousePosEvent(lastX, lastY);
+                io.AddMouseButtonEvent(0, true);
+                if (io.WantCaptureMouse) return true;
                 break;
 
-            case AMOTION_EVENT_ACTION_UP: // Last pointer up
+            case AMOTION_EVENT_ACTION_UP:
+                isDragging = false;
+                dragDirection = 0;
                 io.AddMousePosEvent(event->pointers[0].rawX, event->pointers[0].rawY);
-                io.AddMouseButtonEvent(0, false);  // Left mouse button
-                // Return true if ImGui wants to capture the event
-                if (io.WantCaptureMouse) {
-                    return true;
-                }
+                io.AddMouseButtonEvent(0, false);
+                if (io.WantCaptureMouse) return true;
                 break;
 
             case AMOTION_EVENT_ACTION_MOVE:
-                io.AddMousePosEvent(event->pointers[0].rawX, event->pointers[0].rawY);
-                // Return true if ImGui wants to capture the event
-                if (io.WantCaptureMouse) {
+                float currentX = event->pointers[0].rawX;
+                float currentY = event->pointers[0].rawY;
+                io.AddMousePosEvent(currentX, currentY);
+
+                if (isDragging && io.WantCaptureMouse) {
+                    float deltaX = currentX - lastX;
+                    float deltaY = currentY - lastY;
+                    float totalDeltaX = currentX - dragStartX;
+                    float totalDeltaY = currentY - dragStartY;
+
+                    // Determine drag direction if not yet determined
+                    if (dragDirection == 0) {
+                        // Lock into a direction once movement exceeds threshold
+                        if (fabs(totalDeltaX) > DIRECTION_THRESHOLD ||
+                            fabs(totalDeltaY) > DIRECTION_THRESHOLD) {
+                            if (fabs(totalDeltaX) > fabs(totalDeltaY)) {
+                                dragDirection = 1; // Horizontal
+                            } else {
+                                dragDirection = 2; // Vertical
+                            }
+                        }
+                    }
+
+                    // Only trigger scrolling for vertical drags
+                    if (dragDirection == 2) {
+                        float scrollY = deltaY * 0.007f;
+                        if (fabsf(scrollY) > 0.0f) {
+                            io.AddMouseWheelEvent(0.0f, scrollY);
+                        }
+                    }
+
+                    lastX = currentX;
+                    lastY = currentY;
                     return true;
                 }
+
+                lastX = currentX;
+                lastY = currentY;
+                if (io.WantCaptureMouse) return true;
                 break;
         }
 
-        // If ImGui didn't capture the event, process it in your main input handler
         return false;
     }
     void VeImGui::updateImGuiTransform(uint32_t displayWidth, uint32_t displayHeight, Orientation currentOrientation){

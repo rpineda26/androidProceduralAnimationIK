@@ -52,14 +52,19 @@ namespace ve{
         }
     }
     void AnimationManager::update(const float& deltaTime, ve::Skeleton& skeleton, int frameCounter){
-        // std::cout << "AnimationManager update" << std::endl;
         if(frameCount != frameCounter){
-            // std::cout << "AnimationManager udpdate condition reachable" <<std::endl;
             frameCount = frameCounter;
             if(currentAnimation){
                 // std::cout<<"updating "<<currentAnimation->getName()<<std::endl;
                 currentAnimation->update(deltaTime, skeleton);
             }
+        }
+    }
+    void AnimationManager::updateTimeSkip(ve::Skeleton &skeleton) {
+        if(currentAnimation){
+            currentAnimation->updatePose(skeleton);
+        }else{
+            LOGE("Cant update pose, current animation is null");
         }
     }
     bool AnimationManager::isRunning() const{

@@ -10,6 +10,7 @@ struct PointLight{
 layout(push_constant) uniform PushConstant {
     mat4 modelMatrix;
     float size;
+    vec4 color;
 } push;
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 projectionMatrix;

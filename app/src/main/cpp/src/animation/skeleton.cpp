@@ -50,4 +50,46 @@ namespace ve{
             updateJoint(currentJoint.childrenIndices[i]);
         }
     }
+    bool Skeleton::isDescendantOf(int childIndex, int ancestorIndex) {
+        int16_t parent = joints[childIndex].parentIndex;
+        while (parent != ve::NO_PARENT) {
+            if (parent == ancestorIndex) return true;
+            parent = joints[parent].parentIndex;
+        }
+        return false;
+    }
+    // Implementation of the new methods
+    void Skeleton::updateJointMatrices() {
+        // First set local matrices for all joints
+        for (int16_t i = 0; i < joints.size(); i++) {
+            auto& joint = joints[i];
+
+            // Create the local transformation matrix
+            glm::mat4 localTransform = glm::mat4(1.0f);
+
+            // Apply rotation
+            glm::mat4 rotationMatrix = glm::mat4_cast(joint.rotation);
+            localTransform = localTransform * rotationMatrix;
+
+            // Apply translation
+            localTransform = glm::translate(localTransform, joint.translation);
+
+            // Store in jointMatrices
+            jointMatrices[i] = localTransform;
+        }
+    }
+
+    void Skeleton::applyParentTransforms(int16_t jointIndex) {
+        auto& currentJoint = joints[jointIndex];
+        int16_t parentJoint = currentJoint.parentIndex;
+
+        if (parentJoint != NO_PARENT) {
+            jointMatrices[jointIndex] = jointMatrices[parentJoint] * jointMatrices[jointIndex];
+        }
+
+        // Recursively process children
+        for (size_t i = 0; i < currentJoint.childrenIndices.size(); i++) {
+            applyParentTransforms(currentJoint.childrenIndices[i]);
+        }
+    }
 }

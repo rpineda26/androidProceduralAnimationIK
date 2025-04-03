@@ -151,8 +151,9 @@ namespace ve{
         VeGameObject cubeObj = VeGameObject::createGameObject();
         cubeObj.model = veModel;
         AnimationComponent animationComponent{};
-        uint32_t maxJoints = 100;  // Define the max number of joints
-        uint32_t numJoints = std::min(static_cast<uint32_t>(veModel->skeleton->joints.size()), maxJoints);
+        uint32_t maxJoints = 200;  // Define the max number of joints
+//        uint32_t numJoints = std::min(static_cast<uint32_t>(veModel->skeleton->joints.size()), maxJoints);
+        uint32_t numJoints = maxJoints;
         auto jointSize = static_cast<uint32_t>(sizeof(glm::mat4));
         animationComponent.shaderJointsBuffer.resize(ve::VeSwapChain::MAX_FRAMES_IN_FLIGHT);
         for (int i = 0; i < animationComponent.shaderJointsBuffer.size(); i++) {
@@ -180,7 +181,7 @@ namespace ve{
     }
     void VeGameObject::updateAnimation(float deltaTime, int frameCounter, int frameIndex){
         model->updateAnimation(deltaTime, frameCounter, frameIndex);
-        const uint32_t maxJoints = 100;
+        const uint32_t maxJoints = 200;
         uint32_t numJoints = std::min(static_cast<uint32_t>(model->skeleton->jointMatrices.size()), maxJoints);
 
         animationComponent->shaderJointsBuffer[frameIndex]->writeToBuffer(

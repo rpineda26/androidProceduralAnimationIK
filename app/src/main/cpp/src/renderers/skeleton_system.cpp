@@ -10,8 +10,9 @@
 #include <iostream>
 namespace ve {
     struct JointPushConstantData {
-        glm::mat4 modelMatrix{1.0f};
-        float size{0.5f};
+        alignas(16) glm::mat4 modelMatrix{1.0f};
+        alignas(16) float size{0.5f};
+        alignas(16) glm::vec4 color{1.0f};
     };
     struct LinePushConstantData {
         glm::vec3 startPos;
@@ -95,7 +96,7 @@ namespace ve {
         pipelineConfig2.vertexAttributeDescriptions.clear();
         pipelineConfig2.vertexBindingDescriptions.clear();
         pipelineConfig2.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-        pipelineConfig2.rasterizationInfo.lineWidth = 2.0f;  // Adjust thickness here
+        pipelineConfig2.rasterizationInfo.lineWidth = 1.0f;  // Adjust thickness here
         pipelineConfig2.renderPass = renderPass;
         pipelineConfig2.pipelineLayout = boneLinesPipelineLayout;
         boneLinesPipeline = std::make_unique<VePipeline>(
@@ -105,10 +106,8 @@ namespace ve {
                 "shaders/bones_shader.frag.spv",
                 pipelineConfig2
         );
-
     }
-    
-    
+
     void SkeletonSystem::renderJoints(FrameInfo& frameInfo, const std::vector<VkDescriptorSet>& descriptorSets) {
         jointSpheresPipeline->bind(frameInfo.commandBuffer);
         vkCmdBindDescriptorSets(
@@ -162,6 +161,11 @@ namespace ve {
 
             JointPushConstantData push{};
             push.modelMatrix = pointMatrix;
+            if (frameInfo.selectedJointIndex!=-1 && i == frameInfo.selectedJointIndex) {
+                push.color = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f); // Highlight color (yellow)
+            } else {
+                push.color = glm::vec4(1.0f); // Regular color (light blue)
+            }
             vkCmdPushConstants(
                     frameInfo.commandBuffer,
                     jointSpheresPipelineLayout,
@@ -244,7 +248,10 @@ namespace ve {
 
                 push.startPos = parentPosWorldSpace;
                 push.endPos = childPosWorldSpace;
-                push.color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+                if((i-1==frameInfo.selectedJointIndex)|| (i ==frameInfo.selectedJointIndex))
+                    push.color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); // Highlight color
+                else
+                    push.color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 
                 vkCmdPushConstants(
                         frameInfo.commandBuffer,

@@ -33,6 +33,7 @@ namespace ve{
             bool isRunning() const;
             bool willExpire(const float& deltaTime )const; 
             void update(const float& deltaTime, Skeleton& skeleton);
+            void updatePose(Skeleton& skeleton);
             void setProgress(float progress);
             void setPlayBackSpeed(float speed){playbackSpeed = speed;}
             void setRepeat(){isRepeat = !isRepeat;}
@@ -41,6 +42,8 @@ namespace ve{
             float getDuration() const{return lastKeyFrameTime - firstKeyFrameTime;}
             float getProgress() const{return currentKeyFrameTime / getDuration();}
             float getCurrentTime() const{return currentKeyFrameTime - firstKeyFrameTime;}
+            float getLastKeyFrameTime() const{return lastKeyFrameTime;}
+            float getFirstKeyFrameTime() const{return firstKeyFrameTime;}
             std::string const& getName() const{return name;}
             bool getIsRepeat()const {return isRepeat;}
 

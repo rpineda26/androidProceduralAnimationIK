@@ -42,6 +42,7 @@ namespace ve{
         VkDescriptorSet descriptorSet;
         VeGameObject::Map& gameObjects;
         int selectedObject;
+        int selectedJointIndex;
         int numLights;
         bool showOutlignHighlight;
     };

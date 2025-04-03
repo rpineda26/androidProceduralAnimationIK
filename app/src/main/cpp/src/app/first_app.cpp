@@ -147,10 +147,10 @@ namespace ve {
             VeImGui::initializeImGuiFrame();
 //            ImGui::ShowDemoWindow();
             engineInfo.numLights = getNumLights();
-            renderGameObjectDetails(gameObjects.at(engineInfo.animatedObjIndex), engineInfo.showOutlignHighlight);
+            renderGameObjectDetails(gameObjects.at(engineInfo.animatedObjIndex), engineInfo.showOutlignHighlight, engineInfo.selectedJointIndex);
             //record frame data
             int frameIndex = veRenderer->getFrameIndex();
-            FrameInfo frameInfo{frameIndex, engineInfo.frameTime, engineInfo.elapsedTime, commandBuffer, engineInfo.camera, globalDescriptorSets[frameIndex], gameObjects, engineInfo.animatedObjIndex, engineInfo.numLights, engineInfo.showOutlignHighlight};
+            FrameInfo frameInfo{frameIndex, engineInfo.frameTime, engineInfo.elapsedTime, commandBuffer, engineInfo.camera, globalDescriptorSets[frameIndex], gameObjects, engineInfo.animatedObjIndex, engineInfo.selectedJointIndex,  engineInfo.numLights, engineInfo.showOutlignHighlight};
             //update global UBO
             GlobalUbo globalUbo{};
             globalUbo.projection = engineInfo.camera.getProjectionMatrix();
@@ -168,7 +168,7 @@ namespace ve {
             veRenderer->beginSwapChainRenderPass(commandBuffer);
 
             if(engineInfo.showOutlignHighlight) {
-                outlineHighlightSystem->renderGameObjects(frameInfo);
+//                outlineHighlightSystem->renderGameObjects(frameInfo);
                 skeletonSystem->renderJoints(frameInfo, {globalDescriptorSets[frameIndex]});
                 skeletonSystem->renderJointConnections(frameInfo, {globalDescriptorSets[frameIndex]});
             }else

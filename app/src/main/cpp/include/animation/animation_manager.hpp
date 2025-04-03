@@ -38,6 +38,7 @@ namespace ve{
             void start(){start(0);};
             void stop();
             void update(const float& deltaTime, Skeleton& skeleton, int frameCounter);
+            void updateTimeSkip(Skeleton& skeleton);
             bool isRunning() const;
             bool willExpire(const float& deltaTime) const;
             void setRepeat();

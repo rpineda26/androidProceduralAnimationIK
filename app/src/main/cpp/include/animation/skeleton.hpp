@@ -44,11 +44,19 @@ namespace ve{
             void traverse(Joint const& joint, int indent=0);
             void update();
             void updateJoint(int16_t jointIndex);
+            bool isDescendantOf(int childIndex, int ancestorIndex);
+            void updateForIK() {
+                updateJointMatrices();
+                applyParentTransforms(ROOT_JOINT);
+            }
             //public for now
             std::string name;
             std::vector<Joint> joints;
             bool isAnimated = true;
             std::vector<glm::mat4> jointMatrices;
             std::map<int, int> nodeJointMap;
+        private:
+            void updateJointMatrices();
+            void applyParentTransforms(int16_t jointIndex);
     };
 }

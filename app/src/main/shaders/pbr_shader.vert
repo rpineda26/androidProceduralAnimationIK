@@ -40,7 +40,7 @@ layout(set = 1, binding = 1) uniform sampler2D normalSampler[3];
 layout(set = 1, binding = 2) uniform sampler2D specularSampler[3];
 
 layout(set = 2, binding = 0) uniform JointMatrixBufferObject {
-    mat4 jointMatrices[100];
+    mat4 jointMatrices[200];
 } jmbo;
 
 layout(push_constant) uniform Push {
@@ -54,7 +54,7 @@ layout(push_constant) uniform Push {
 void main(){
     mat4 skinMatrix = mat4(1.0);
     vec4 skinnedPosition = vec4(position, 1.0);
-
+    fragColor = color;
     
     // Check if we need to apply skinning
     if(push.isAnimated) {
@@ -66,10 +66,15 @@ void main(){
             totalWeight += weights[i];
             if(weights[i] == 0)
                 continue;
-            if(joints[i] >= 100){
+            if(joints[i] >= 200){
                 skinMatrix = mat4(1.0);
                 skinnedPosition = vec4(position, 1.0);
                 break;
+            }
+            if(determinant(mat3(jmbo.jointMatrices[joints[i]])) < 0.0) {
+                // This joint has negative scaling
+                // You could color this red for debugging
+                fragColor = vec3(1.0, 0.0, 0.0);
             }
             vec4 localPosition = jmbo.jointMatrices[joints[i]] * vec4(position, 1.0);
             skinnedPosition += localPosition * weights[i];
@@ -83,7 +88,7 @@ void main(){
     gl_Position = ubo.projectionMatrix * (ubo.viewMatrix * positionWorld);
     fragPosition = positionWorld.xyz;
 //    fragColor = color * push.baseColor;
-    fragColor = color;
+
     fragUV = uv;
 
     //compute TBN matrix
