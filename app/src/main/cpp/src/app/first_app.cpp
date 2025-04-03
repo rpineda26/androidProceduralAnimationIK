@@ -169,6 +169,7 @@ namespace ve {
 
             if(engineInfo.showOutlignHighlight) {
 //                outlineHighlightSystem->renderGameObjects(frameInfo);
+                pbrRenderSystem->renderGameObjects(frameInfo, /*shadowRenderSystem.getShadowDescriptorSet(frameIndex),*/ {globalDescriptorSets[frameIndex], textureDescriptorSet, gameObjects.at(engineInfo.animatedObjIndex).animationComponent->animationDescriptorSets[frameIndex]});
                 skeletonSystem->renderJoints(frameInfo, {globalDescriptorSets[frameIndex]});
                 skeletonSystem->renderJointConnections(frameInfo, {globalDescriptorSets[frameIndex]});
             }else
@@ -254,9 +255,13 @@ namespace ve {
         auto light = VeGameObject::createPointLight(1.0f, .2f, {1.0f,1.0f,1.0f});
         light.setTitle("Light");
         light.transform.translation = {-0.811988f, -6.00838f, 0.1497f};
-        light.lightComponent->lightIntensity = 20.0f;
+        light.lightComponent->lightIntensity = 15.0f;
         gameObjects.emplace(light.getId(),std::move(light));
-
+        auto light2 = VeGameObject::createPointLight(1.0f, .2f, {1.0f,1.0f,1.0f});
+        light2.setTitle("Light");
+        light2.transform.translation = {-0.811988f, 6.00838f, 0.1497f};
+        light2.lightComponent->lightIntensity = 15.0f;
+        gameObjects.emplace(light2.getId(),std::move(light2));
         //skybox
         auto skybox = VeGameObject::createCubeMap(*veDevice, assetManager.get(), {"cubemap/right_white.png", "cubemap/left_white.png", "cubemap/top_white.png", "cubemap/bottom_white.png", "cubemap/front_white.png", "cubemap/back_white.png"}, *globalPool);
         skybox.setTitle("Skybox");

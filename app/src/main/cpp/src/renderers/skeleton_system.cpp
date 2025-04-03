@@ -96,6 +96,7 @@ namespace ve {
         pipelineConfig2.vertexAttributeDescriptions.clear();
         pipelineConfig2.vertexBindingDescriptions.clear();
         pipelineConfig2.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+        pipelineConfig2.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_ALWAYS;
         pipelineConfig2.rasterizationInfo.lineWidth = 1.0f;  // Adjust thickness here
         pipelineConfig2.renderPass = renderPass;
         pipelineConfig2.pipelineLayout = boneLinesPipelineLayout;

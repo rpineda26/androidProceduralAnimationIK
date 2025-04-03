@@ -227,7 +227,7 @@ namespace ve{
             float& currentTime = gameObject.model->animationManager->currentAnimation->currentKeyFrameTime;
             // Rewind button
             if (ImGui::Button("Previous", ImVec2(-1, 0))) {
-                currentTime = fmax(0.0f,currentTime-0.2f);
+                currentTime = fmax(0.0f,currentTime-0.02f);
                 gameObject.model->animationManager->updateTimeSkip(*gameObject.model->skeleton);
             }
             ImGui::NextColumn();
@@ -245,7 +245,7 @@ namespace ve{
 
             // Fast Forward button
             if (ImGui::Button("Next", ImVec2(-1, 0))) {
-                currentTime += 0.2f;
+                currentTime += 0.02f;
                 gameObject.model->animationManager->updateTimeSkip(*gameObject.model->skeleton);
             }
             ImGui::Columns(1);
