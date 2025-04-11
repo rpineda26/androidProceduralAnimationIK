@@ -374,11 +374,59 @@ static uint32_t __glsl_shader_frag_spv[] =
 // Backend data stored in io.BackendRendererUserData to allow support for multiple Dear ImGui contexts
 // It is STRONGLY preferred that you use docking branch with multi-viewports (== single Dear ImGui context + multiple windows) instead of multiple Dear ImGui contexts.
 // FIXME: multi-context support is not tested and probably dysfunctional in this backend.
+
 static ImGui_ImplVulkan_Data* ImGui_ImplVulkan_GetBackendData()
 {
     return ImGui::GetCurrentContext() ? (ImGui_ImplVulkan_Data*)ImGui::GetIO().BackendRendererUserData : nullptr;
 }
+void ImGui_ImplVulkan_HandleRotation(int width, int height, VkCommandBuffer command_buffer)
+{
+    ImGuiIO& io = ImGui::GetIO();
 
+    // Update ImGui display size
+    io.DisplaySize = ImVec2((float)width, (float)height);
+
+    // Get backend data
+    ImGui_ImplVulkan_Data* bd = ImGui_ImplVulkan_GetBackendData();
+    if (!bd)
+        return;
+
+    // Update viewport
+    VkViewport viewport;
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = (float)width;
+    viewport.height = (float)height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+
+    // Update scissor
+    VkRect2D scissor = { { 0, 0 }, { (uint32_t)width, (uint32_t)height } };
+    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+}
+
+// This function should be called from your Android native code when the surface changes
+bool ImGui_ImplVulkan_RecreateSwapchain(int width, int height)
+{
+    ImGui_ImplVulkan_Data* bd = ImGui_ImplVulkan_GetBackendData();
+    if (!bd)
+        return false;
+
+    ImGui_ImplVulkan_InitInfo* v = &bd->VulkanInitInfo;
+
+    // Wait for the device to finish all operations
+    vkDeviceWaitIdle(v->Device);
+
+    // Update ImGui's display size
+    ImGuiIO& io = ImGui::GetIO();
+    io.DisplaySize = ImVec2((float)width, (float)height);
+
+    // Your application should handle the actual swapchain recreation
+    // This is just a hook to notify ImGui that the size has changed
+
+    return true;
+}
 static uint32_t ImGui_ImplVulkan_MemoryType(VkMemoryPropertyFlags properties, uint32_t type_bits)
 {
     ImGui_ImplVulkan_Data* bd = ImGui_ImplVulkan_GetBackendData();

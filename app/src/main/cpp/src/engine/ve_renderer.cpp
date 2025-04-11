@@ -46,11 +46,10 @@ namespace ve {
     }
     VkCommandBuffer VeRenderer::beginFrame(){
         assert(!isFrameStarted && "Can't call beginFrame while frame is already in progress.");
+        bool changeImGuiOrientation = false;
         if(veWindow.isOrientationChanged()){
-            auto extent = veWindow.getExtent();
             recreateSwapChain();
-//            VeImGui::updateImGuiTransform(extent.width, extent.height, veSwapChain->getOrientation());
-            veWindow.setOrientationChanged(false);
+            changeImGuiOrientation = true;
         }
         auto  result = veSwapChain->acquireNextImage(&currentImageIndex);
         //If the surface has changed and is no longer compatible with the swap chain
@@ -68,6 +67,11 @@ namespace ve {
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         if(vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS){
             throw std::runtime_error("failed to begin recording command buffer!");
+        }
+        if(changeImGuiOrientation){
+            auto extent = veWindow.getExtent();
+//            ImGui_ImplVulkan_HandleRotation((int)extent.width, (int)extent.height,  commandBuffer);
+//            ImGui_ImplVulkan_RecreateSwapchain((int)extent.width, (int)extent.height);
         }
         return commandBuffer;
     }

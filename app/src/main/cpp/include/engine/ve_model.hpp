@@ -53,6 +53,7 @@ namespace ve{
 //            void loadModel(const std::string& filePath, AAssetManager *assetManager);
             void loadModelGLTF(const std::string& filePath, AAssetManager *assetManager);
             void loadCubeMap(glm::vec3 cubeVetices[CUBE_MAP_VERTEX_COUNT]);
+            void loadQuad();
         };
 
         VeModel(VeDevice& device, const VeModel::Builder& builder);
@@ -62,6 +63,7 @@ namespace ve{
 
         static std::unique_ptr<VeModel> createModelFromFile(VeDevice& device,AAssetManager *assetManager, const std::string& filePath);
         static std::unique_ptr<VeModel> createCubeMap(VeDevice& device, glm::vec3 cubeVetices[CUBE_MAP_VERTEX_COUNT]);
+        static std::unique_ptr<VeModel> createQuad(VeDevice& device);
         void bind(VkCommandBuffer commandBuffer);
         void draw(VkCommandBuffer commandBuffer);
         void drawInstanced(VkCommandBuffer commandBuffer, uint32_t instanceCount);

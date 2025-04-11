@@ -83,7 +83,6 @@ namespace ve {
                 push.modelMatrix =  obj.transform.mat4();
                 push.textureIndex = obj.getTextureIndex();
                 push.smoothness = obj.getSmoothness();
-//                push.baseColor = obj.color;
                 if(obj.model->hasAnimationData()){
                     push.isAnimated = true;
                     

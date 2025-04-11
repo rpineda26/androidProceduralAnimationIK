@@ -195,9 +195,7 @@ namespace ve {
     void FirstApp::loadGameObjects() {
         auto fox = VeGameObject::createAnimatedObject(*veDevice, *globalPool, preLoadedModels["Fox"]);
 //        auto fox = VeGameObject::createGameObject();
-        fox.setTextureIndex(2);
-        fox.setNormalIndex(2);
-        fox.setSpecularIndex(2);
+        fox.setTextureIndex(1);
 //        fox.model = preLoadedModels["Cute_Demon"];
         // fox.transform.translation = {0.5f, 0.5f, 0.0f};
         fox.transform.scale = {0.03f, 0.03f, 0.03f};
@@ -206,6 +204,12 @@ namespace ve {
         gameObjects.emplace(fox.getId(),std::move(fox));
         engineInfo.animatedObjIndex = fox.getId();
 
+        auto quad = VeGameObject::createGameObject();
+        quad.model = VeModel::createQuad(*veDevice);
+        quad.setTextureIndex(0);
+        quad.transform.scale = {100.0f, 100.0f, 100.0f};
+        quad.color = {128.0f, 228.1f, 229.1f}; //cyan
+        gameObjects.emplace(quad.getId(),std::move(quad));
         // auto man = VeGameObject::createGameObject();
         // man.setTextureIndex(2);
         // man.setNormalIndex(2);
@@ -254,13 +258,13 @@ namespace ve {
         //object 3: light
         auto light = VeGameObject::createPointLight(1.0f, .2f, {1.0f,1.0f,1.0f});
         light.setTitle("Light");
-        light.transform.translation = {-0.811988f, -6.00838f, 0.1497f};
-        light.lightComponent->lightIntensity = 15.0f;
+        light.transform.translation = {-6.811988f, 6.00838f, 0.1497f};
+        light.lightComponent->lightIntensity = 30.0f;
         gameObjects.emplace(light.getId(),std::move(light));
         auto light2 = VeGameObject::createPointLight(1.0f, .2f, {1.0f,1.0f,1.0f});
         light2.setTitle("Light");
-        light2.transform.translation = {-0.811988f, 6.00838f, 0.1497f};
-        light2.lightComponent->lightIntensity = 15.0f;
+        light2.transform.translation = {6.811988f, 6.00838f, 0.1497f};
+        light2.lightComponent->lightIntensity = 30.0f;
         gameObjects.emplace(light2.getId(),std::move(light2));
         //skybox
         auto skybox = VeGameObject::createCubeMap(*veDevice, assetManager.get(), {"cubemap/right_white.png", "cubemap/left_white.png", "cubemap/top_white.png", "cubemap/bottom_white.png", "cubemap/front_white.png", "cubemap/back_white.png"}, *globalPool);
@@ -271,8 +275,9 @@ namespace ve {
     }
     void FirstApp::loadTextures(){
         textures.push_back(std::make_unique<VeTexture>(*veDevice, assetManager.get(), "textures/brick_texture.png"));
-        textures.push_back(std::make_unique<VeTexture>(*veDevice, assetManager.get(),"textures/metal.tga"));
+        textures.push_back(std::make_unique<VeTexture>(*veDevice, assetManager.get(),"models/textures/fox_material_baseColor.png"));
         textures.push_back(std::make_unique<VeTexture>(*veDevice, assetManager.get(),"textures/wood.png"));
+
         // textures.push_back(std::make_unique<VeTexture>(*veDevice, assetManager.get(), "textures/wall_gray.png"));
         // textures.push_back(std::make_unique<VeTexture>(*veDevice, assetManager.get(), "textures/tile.png"));
         // textures.push_back(std::make_unique<VeTexture>(*veDevice, assetManager.get(), "textures/stone.png"));

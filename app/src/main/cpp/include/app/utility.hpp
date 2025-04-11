@@ -43,7 +43,9 @@ namespace ve{
         "metal",
         "wood",
         "wall_gray",
-        "tile"
+        "tile",
+        "fox_material_basColor"
+
     };
     inline std::unordered_map<std::string, std::shared_ptr<VeModel>> preLoadedModels;
     inline void preLoadModels(VeDevice& veDevice, AAssetManager *assetManager){

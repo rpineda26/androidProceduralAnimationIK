@@ -129,22 +129,38 @@ void main(){
 
     vec3 specularColor = vec3(0.04);
     float roughness = 1 - push.smoothness;
-    if(push.textureIndex >=0){
+    if(push.textureIndex >1){
         vec4 specularSample = texture(specularSampler[push.textureIndex], fragUv);
         specularColor = specularSample.rgb;
         roughness = 1 - push.smoothness * specularSample.a;
     }
     roughness = max(roughness, minimumRoughness);
-
-
     //calculate values that does not factor in light vector
-    vec3 N = fragNormal;
-    if(push.textureIndex >= 0){
+    vec3 N = normalize(fragNormal);
+    if(push.textureIndex >1) {
         vec3 surfaceNormal = texture(normalSampler[push.textureIndex], fragUv).rgb;
         N = normalize(surfaceNormal * 2.0 - 1.0); //convert from 0-1 to -1 to 1
     }
+    if(push.textureIndex == 0) {
+        float tiles = 32.0; // Change this to 4.0 for 4x4, 16.0 for 16x16, etc.
+        vec2 scaledUV = fragUv * tiles;
+        vec2 tileIndex = floor(scaledUV);
+        float selector = mod(tileIndex.x + tileIndex.y, 2.0);
+        vec4 colorA = vec4(0.55, 0.55, 0.55, 1.0); // Lighter Gray
+        vec4 colorB = vec4(0.45, 0.45, 0.45, 1.0); // Darker Gray
+        if (selector < 1.0) { // Even sum (0.0)
+            albedo = colorA;
+        } else { // Odd sum (1.0)
+            albedo = colorB;
+        }
+
+        specularColor = vec3(0.04); // Low specular for a matte floor
+        roughness = 0.8;
+        outColor = vec4(albedo.rgb, 1.0);
+        return;  // Exit to just show the pattern without full PBR lighting
+    }
     vec3 V = normalize(fragTangentView - fragTangentPos);
-    float NdotV = max(dot(N, V), 0.0);
+    float NdotV = max(dot(N, V), 0.0001);
 
     //calculate lighting
     vec3 totalLight = vec3(0.0);
@@ -155,9 +171,9 @@ void main(){
         vec3 H = normalize(L + V);
         //dot products
         
-        float NdotL = dot(N, L);
-        float NdotH = max(dot(N, H), 0.0);
-        float VdotH = max(dot(V, H), 0.0);
+        float NdotL = max(dot(N, L), 0.0001);
+        float NdotH = max(dot(N, H), 0.0001);
+        float VdotH = max(dot(V, H), 0.0001);
 
         //light attenuation
         
@@ -186,6 +202,8 @@ void main(){
     }
     //ambient light
     vec3 ambient = ubo.ambientLightColor.xyz * ubo.ambientLightColor.w * albedo.rgb;
+    // Ensure minimum ambient light
+    ambient = max(ambient, vec3(0.03) * albedo.rgb);
     vec3 finalColor = totalLight + ambient;
     //tone mapping
     // finalColor = finalColor / (finalColor + vec3(1.0));

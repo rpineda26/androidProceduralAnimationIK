@@ -164,6 +164,11 @@ namespace ve{
         builder.loadCubeMap(cubeVetices);
         return std::make_unique<VeModel>(device, builder);
     }
+    std::unique_ptr<VeModel> VeModel::createQuad(VeDevice& device){
+        Builder builder{};
+        builder.loadQuad();
+        return std::make_unique<VeModel>(device, builder);
+    }
 //    void VeModel::Builder::loadModel(const std::string& filePath, AAssetManager *assetManager){
 //        tinyobj::attrib_t attrib;
 //        std::vector<tinyobj::shape_t> shapes;
@@ -625,6 +630,38 @@ namespace ve{
             }
             indices.push_back(uniqueVertices[vertex]);
         }
+    }
+    void VeModel::Builder::loadQuad(){
+        vertices.clear();
+        indices.clear();
+        std::unordered_map<Vertex, uint32_t, VertexHash> uniqueVertices{};
+        // Define quad vertices
+        glm::vec3 quadVertices[4] = {
+            { -1.0f, 0.0f,  1.0f }, // Front-left
+            {  1.0f, 0.0f,  1.0f }, // Front-right
+            { -1.0f, 0.0f, -1.0f }, // Back-left
+            {  1.0f, 0.0f, -1.0f }  // Back-right
+        };
+        float uvs[4][2] = {
+                {0.0f, 0.0f},  // Front-left
+                {1.0f, 0.0f},  // Front-right
+                {0.0f, 1.0f},  // Back-left
+                {1.0f, 1.0f}   // Back-right
+        };
+        for (size_t i = 0; i < 4; i++) {
+            Vertex vertex{};
+            vertex.position = quadVertices[i];
+            vertex.color = { 1.0f, 1.0f, 1.0f };
+            vertex.normal =  { 0.0f, 1.0f, 0.0f };;
+            vertex.uv = { (i % 2), (i / 2) };
+            vertex.jointIndices = glm::ivec4(0);
+            vertex.jointWeights = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+            if (uniqueVertices.count(vertex) == 0) {
+                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                vertices.push_back(vertex);
+            }
+        }
+        indices = { 2, 3, 1, 2, 1, 0 };
     }
     void VeModel::loadSkeleton(const tinygltf::Model& model){
         size_t numSkeletons = model.skins.size();

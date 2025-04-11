@@ -6,7 +6,7 @@
 #include <vulkan/vulkan_core.h>
 
 namespace ve{
-    static constexpr float MIN_ELEVATION = -179.0f;
+    static constexpr float MIN_ELEVATION = 1.0f;
     static constexpr float MAX_ELEVATION = 179.0f;
     static constexpr float MIN_RADIUS = 5.0f;
     static constexpr float MAX_RADIUS = 15.0f;

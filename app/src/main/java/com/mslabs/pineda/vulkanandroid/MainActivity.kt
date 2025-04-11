@@ -20,7 +20,7 @@ class MainActivity : GameActivity() {
 
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
-//            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+//            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             hideSystemUI()
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             // Example of a call to a native method

@@ -81,6 +81,7 @@ namespace ve {
         pipelineConfig.vertexAttributeDescriptions.clear();
         pipelineConfig.vertexBindingDescriptions.clear();
         pipelineConfig.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+        pipelineConfig.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_ALWAYS;
         pipelineConfig.renderPass = renderPass;
         pipelineConfig.pipelineLayout = jointSpheresPipelineLayout;
         jointSpheresPipeline = std::make_unique<VePipeline>(
