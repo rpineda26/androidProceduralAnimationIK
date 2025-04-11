@@ -1,5 +1,9 @@
 #include "animation.hpp"
 #include "debug.hpp"
+
+#include <imgui.h>
+#include <vector>
+#include <set>
 #include <iostream>
 namespace ve{
     Animation::Animation(std::string const& name): name(name), isRepeat(true){}
@@ -221,5 +225,20 @@ namespace ve{
         progress =  std::clamp(progress, 0.0f, getDuration());
         // Calculate absolute time based on total duration
         currentKeyFrameTime = progress;
+    }
+    std::vector<float> Animation::getKeyframeTimes(){
+        std::set<float> uniqueTimes;
+        for (const ve::Animation::Sampler& sampler : samplers) {
+            // 4. Iterate through the timeStamps vector in the current sampler
+            for (float time : sampler.timeStamps) {
+                // 5. Insert each timestamp into the set.
+                //    Duplicates will be automatically ignored by the set.
+                uniqueTimes.insert(time);
+            }
+        }
+
+        // std::vector sorts the timeframes in order
+        std::vector<float> keyframeTimesVec(uniqueTimes.begin(), uniqueTimes.end());
+        return keyframeTimesVec;
     }
 }

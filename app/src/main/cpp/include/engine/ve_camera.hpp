@@ -31,7 +31,7 @@ namespace ve{
         public:
             float radius{10.0f};
             float horizontalAngle{0.0f};
-            float verticalAngle{0.0f};
+            float verticalAngle{1.0f};
 
         private:
             glm::mat4 projectionMatrix{1.0f};

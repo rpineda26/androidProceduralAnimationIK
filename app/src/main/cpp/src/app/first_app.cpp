@@ -258,14 +258,19 @@ namespace ve {
         //object 3: light
         auto light = VeGameObject::createPointLight(1.0f, .2f, {1.0f,1.0f,1.0f});
         light.setTitle("Light");
-        light.transform.translation = {-6.811988f, 6.00838f, 0.1497f};
+        light.transform.translation = {4.0f, 6.00838f, 0.0f};
         light.lightComponent->lightIntensity = 30.0f;
         gameObjects.emplace(light.getId(),std::move(light));
-        auto light2 = VeGameObject::createPointLight(1.0f, .2f, {1.0f,1.0f,1.0f});
-        light2.setTitle("Light");
-        light2.transform.translation = {6.811988f, 6.00838f, 0.1497f};
-        light2.lightComponent->lightIntensity = 30.0f;
-        gameObjects.emplace(light2.getId(),std::move(light2));
+//        auto light2 = VeGameObject::createPointLight(1.0f, .2f, {1.0f,1.0f,1.0f});
+//        light2.setTitle("Light");
+//        light2.transform.translation = {-4.0f, 6.00838f, 0.0f};
+//        light2.lightComponent->lightIntensity = 30.0f;
+//        gameObjects.emplace(light.getId(),std::move(light2));
+        auto light3 = VeGameObject::createPointLight(1.0f, .2f, {1.0f,1.0f,1.0f});
+        light3.setTitle("Light");
+        light3.transform.translation = {-4.0f, 6.00838f, 0};
+        light3.lightComponent->lightIntensity = 30.0f;
+        gameObjects.emplace(light3.getId(),std::move(light3));
         //skybox
         auto skybox = VeGameObject::createCubeMap(*veDevice, assetManager.get(), {"cubemap/right_white.png", "cubemap/left_white.png", "cubemap/top_white.png", "cubemap/bottom_white.png", "cubemap/front_white.png", "cubemap/back_white.png"}, *globalPool);
         skybox.setTitle("Skybox");

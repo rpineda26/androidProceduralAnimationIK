@@ -2,7 +2,9 @@
 //project components
 #include "ve_model.hpp"
 #include "ve_game_object.hpp"
+#include "debug.hpp"
 //core libraries
+#include "imgui_internal.h"
 #include <imgui.h>
 #include <android/asset_manager.h>
 #include <glm/gtx/matrix_decompose.hpp>
@@ -11,6 +13,9 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <cmath>
+#include <algorithm>
+#include <limits>
 namespace ve{
     template<typename T, typename... Rest>
     void hashCombine(std::size_t& seed, const T& v, const Rest&... rest){
@@ -63,6 +68,326 @@ namespace ve{
             model.reset();
         }
         preLoadedModels.clear();
+    }
+    inline bool ZoomableTimelineWidget(const char* label, float* currentTime, float duration, const std::vector<float>& keyframes, float viewDuration = 2.0f, int maxVisibleDiamonds = 10) {
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        if (window->SkipItems)
+            return false;
+
+        ImGuiContext& g = *GImGui;
+        const ImGuiStyle& style = g.Style;
+        const ImGuiID id = window->GetID(label);
+        const ImGuiID storageId = window->GetID((label + std::string("_view")).c_str());
+        ImGuiStorage* storage = ImGui::GetStateStorage();
+
+        // --- View Range Calculation & State Handling ---
+        float viewStartTime = storage->GetFloat(storageId, 0.0f); // Get previous view start
+        float viewEndTime = viewStartTime + viewDuration;
+
+        // Check if currentTime is outside view or too close to edges (within 10% of the edge)
+        float edgeBuffer = viewDuration * 0.1f;
+        bool needViewUpdate =
+                *currentTime < viewStartTime + edgeBuffer ||
+                *currentTime > viewEndTime - edgeBuffer;
+
+        if (needViewUpdate) {
+            // Only recenter when needed
+            viewStartTime = *currentTime - viewDuration / 2.0f;
+        }
+
+        // Apply boundary clamping after deciding whether to update
+        viewStartTime = std::max(0.0f, viewStartTime);
+        float currentViewEnd = viewStartTime + viewDuration;
+        currentViewEnd = std::min(duration, currentViewEnd);
+        float currentViewDuration = currentViewEnd - viewStartTime;
+        viewStartTime = std::max(0.0f, currentViewEnd - currentViewDuration);
+
+        // --- Widget Layout & Hitbox ---
+        ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+        float available_width = ImGui::GetContentRegionAvail().x;
+        if (available_width <= 0.0f) available_width = 100.0f;
+        float height = ImGui::GetTextLineHeight() + style.FramePadding.y * 2.0f;
+        ImVec2 size(available_width, height);
+        ImRect bb(cursor_pos, ImVec2(cursor_pos.x + size.x, cursor_pos.y + size.y));
+        ImGui::ItemSize(size, style.FramePadding.y);
+        if (!ImGui::ItemAdd(bb, id)) return false;
+
+        // --- Interaction Handling (with Snapping) ---
+        bool hovered, held;
+        bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
+        bool value_changed = false;
+        if (hovered && (held || pressed) && currentViewDuration > 0.0f) {
+            ImVec2 mouse_pos_rel = ImVec2(g.IO.MousePos.x - bb.Min.x, g.IO.MousePos.y - bb.Min.y);
+            float time_in_view = (ImClamp(mouse_pos_rel.x, 0.0f, size.x) / size.x) * currentViewDuration;
+            float new_time = viewStartTime + time_in_view;
+            new_time = ImClamp(new_time, 0.0f, duration);
+
+            float snap_radius_pixels = height * 0.5f;
+            float min_snap_diff = std::numeric_limits<float>::max();
+            float snapped_time = new_time;
+            bool did_snap = false;
+            for (float key_time : keyframes) {
+                if (key_time >= viewStartTime && key_time <= currentViewEnd) {
+                    float key_x = bb.Min.x + ((key_time - viewStartTime) / currentViewDuration) * size.x;
+                    float pixel_diff = std::fabs(g.IO.MousePos.x - key_x);
+                    if (pixel_diff < snap_radius_pixels && pixel_diff < min_snap_diff) {
+                        min_snap_diff = pixel_diff; snapped_time = key_time; did_snap = true;
+                    }
+                }
+            }
+            if (did_snap) { new_time = snapped_time; }
+
+            if (*currentTime != new_time) {
+                *currentTime = new_time; value_changed = true; ImGui::MarkItemEdited(id);
+            }
+        }
+
+        // --- Drawing ---
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        draw_list->AddRectFilled(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_FrameBg), style.FrameRounding);
+
+        if (duration <= 0.0f || currentViewDuration <= 0.0f) {
+            char time_str_empty[64]; ImFormatString(time_str_empty, sizeof(time_str_empty), "Time: %.2f / %.2f s", *currentTime, duration); ImGui::TextUnformatted(time_str_empty);
+            storage->SetFloat(storageId, viewStartTime);
+            return value_changed;
+        }
+
+        // Draw Base Timeline Bar
+        draw_list->AddLine(ImVec2(bb.Min.x, bb.Min.y + size.y * 0.5f),
+                           ImVec2(bb.Max.x, bb.Min.y + size.y * 0.5f),
+                           ImGui::GetColorU32(ImGuiCol_SliderGrab));
+
+        // Prepare Keyframes for Drawing (Filter & Decimate)
+        std::vector<float> visibleKeyframes;
+        visibleKeyframes.reserve(keyframes.size());
+        for(float kt : keyframes) {
+            if (kt >= viewStartTime && kt <= currentViewEnd) {
+                visibleKeyframes.push_back(kt);
+            }
+        }
+
+        // --- [IMPROVED] Highlight Logic - persist highlight until next keyframe is reached ---
+        float activeKeyframeTime = -1.0f;
+
+        // Find which keyframe's interval the current time is in
+        for (size_t i = 0; i < visibleKeyframes.size(); ++i) {
+            float current_key = visibleKeyframes[i];
+            float next_key = (i + 1 < visibleKeyframes.size()) ? visibleKeyframes[i + 1] : duration;
+
+            // If currentTime is in this interval [current_key, next_key)
+            // Use a small epsilon for floating point comparison
+            const float epsilon = 0.00001f;
+            if (*currentTime >= current_key - epsilon &&
+                (i + 1 == visibleKeyframes.size() || *currentTime < next_key - epsilon)) {
+                activeKeyframeTime = current_key;
+                break;
+            }
+        }
+
+        std::vector<float> keyframesToDraw;
+        if (visibleKeyframes.empty()) { /* no keys */ }
+        else if (visibleKeyframes.size() <= static_cast<size_t>(maxVisibleDiamonds)) {
+            keyframesToDraw = visibleKeyframes;
+        }
+        else { /* Decimation */
+            keyframesToDraw.push_back(visibleKeyframes.front());
+            float stride = std::max(1.0f, static_cast<float>(visibleKeyframes.size() - 2) / static_cast<float>(maxVisibleDiamonds - 2));
+            float next_target_index = stride;
+            for (size_t i = 1; i < visibleKeyframes.size() - 1; ++i) {
+                if (static_cast<float>(i) >= next_target_index) {
+                    if (keyframesToDraw.empty() || std::fabs(visibleKeyframes[i] - keyframesToDraw.back()) > 0.00001f) {
+                        keyframesToDraw.push_back(visibleKeyframes[i]);
+                    }
+                    next_target_index += stride;
+                }
+            }
+            if (visibleKeyframes.back() != keyframesToDraw.back()) {
+                keyframesToDraw.push_back(visibleKeyframes.back());
+            }
+        }
+
+        // --- Draw Keyframe Markers (Decimated) ---
+        float diamond_half_size = height * 0.25f;
+        ImU32 marker_color_default_outline = ImGui::GetColorU32(ImGuiCol_Button);
+        ImU32 marker_color_highlight_fill = ImGui::GetColorU32(ImGuiCol_NavHighlight);
+        float min_pixel_distance = diamond_half_size * 1.5f;
+        float last_drawn_marker_x = -std::numeric_limits<float>::max();
+
+        for (size_t i = 0; i < keyframesToDraw.size(); ++i) {
+            float key_time = keyframesToDraw[i];
+
+            float key_x = bb.Min.x + ((key_time - viewStartTime) / currentViewDuration) * size.x;
+            float key_y = bb.Min.y + size.y * 0.5f;
+
+            if (key_x >= last_drawn_marker_x + min_pixel_distance) {
+                // Using our improved highlighting logic
+                bool is_highlighted = (key_time == activeKeyframeTime);
+
+                ImVec2 diamond_verts[4] = {
+                        ImVec2(key_x, key_y - diamond_half_size), ImVec2(key_x + diamond_half_size, key_y),
+                        ImVec2(key_x, key_y + diamond_half_size), ImVec2(key_x - diamond_half_size, key_y)
+                };
+                if (is_highlighted) {
+                    draw_list->AddConvexPolyFilled(diamond_verts, 4, marker_color_highlight_fill);
+                } else {
+                    draw_list->AddPolyline(diamond_verts, 4, marker_color_default_outline, ImDrawFlags_Closed, 1.0f);
+                }
+
+                last_drawn_marker_x = key_x;
+            }
+        }
+
+        // --- Tooltip Logic (Check against ALL VISIBLE keyframes) ---
+        float tooltip_handle_radius = height * 0.4f;
+        for(float key_time : visibleKeyframes) {
+            float key_x = bb.Min.x + ((key_time - viewStartTime) / currentViewDuration) * size.x;
+            float key_y = bb.Min.y + size.y * 0.5f;
+            ImVec2 marker_center(key_x, key_y);
+            if (ImGui::IsMouseHoveringRect(ImVec2(marker_center.x - tooltip_handle_radius, marker_center.y - tooltip_handle_radius),
+                                           ImVec2(marker_center.x + tooltip_handle_radius, marker_center.y + tooltip_handle_radius))) {
+                ImGui::SetTooltip("Keyframe: %.2f s", key_time);
+            }
+        }
+
+        // --- Draw Playhead ---
+        if (*currentTime >= viewStartTime && *currentTime <= currentViewEnd) {
+            float current_x = bb.Min.x + ((*currentTime - viewStartTime) / currentViewDuration) * size.x;
+            ImU32 playhead_color = ImGui::GetColorU32(ImGuiCol_ButtonHovered);
+            draw_list->AddLine(ImVec2(current_x, bb.Min.y), ImVec2(current_x, bb.Max.y), playhead_color, 1.5f);
+            float triangle_half_width = height * 0.25f;
+            float triangle_height = height * 0.3f;
+            draw_list->AddTriangleFilled(
+                    ImVec2(current_x, bb.Min.y + triangle_height),
+                    ImVec2(current_x - triangle_half_width, bb.Min.y),
+                    ImVec2(current_x + triangle_half_width, bb.Min.y),
+                    playhead_color);
+        }
+
+        // --- Display Time Text ---
+        char time_str[128];
+        ImFormatString(time_str, sizeof(time_str), "Time: %.2f / %.2f s", *currentTime, duration);
+        ImGui::TextUnformatted(time_str);
+
+        // --- Store view state for next frame ---
+        storage->SetFloat(storageId, viewStartTime);
+
+        return value_changed;
+    }
+    inline bool TimelineWidget(const char* label, float* currentTime, float duration, const std::vector<float>& keyframes) {
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        if (window->SkipItems)
+            return false;
+
+        ImGuiContext& g = *GImGui;
+        const ImGuiStyle& style = g.Style;
+        const ImGuiID id = window->GetID(label);
+
+        ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+        float available_width = ImGui::GetContentRegionAvail().x;
+        float height = ImGui::GetTextLineHeight() + style.FramePadding.y * 2.0f; // Timeline height
+        ImVec2 size(available_width, height);
+
+        ImRect bb(cursor_pos, ImVec2(cursor_pos.x + size.x, cursor_pos.y + size.y));
+        ImGui::ItemSize(size, style.FramePadding.y);
+        if (!ImGui::ItemAdd(bb, id))
+            return false;
+
+        bool hovered, held;
+        bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, ImGuiButtonFlags_PressedOnClick);
+        bool value_changed = false;
+
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+        // --- Background ---
+        draw_list->AddRectFilled(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_FrameBg), style.FrameRounding);
+
+        if (duration <= 0.0f) // Nothing to draw if duration is zero or negative
+            return false;
+
+        float handle_radius = height * 0.4f; // Radius for clickable area around markers/playhead
+
+        // --- Interaction ---
+        if (hovered && (held || pressed)) {
+            ImVec2 mouse_pos_rel = ImVec2(g.IO.MousePos.x - bb.Min.x, g.IO.MousePos.y - bb.Min.y);
+            float new_time = (mouse_pos_rel.x / size.x) * duration;
+            new_time = ImClamp(new_time, 0.0f, duration); // Clamp to valid range
+
+            // Check if clicking near a keyframe marker to snap
+            bool snapped = false;
+            for (float key_time : keyframes) {
+                float key_x = (key_time / duration) * size.x;
+                if (std::fabs(mouse_pos_rel.x - key_x) < handle_radius) { // Snap radius
+                    new_time = key_time;
+                    snapped = true;
+                    break;
+                }
+            }
+
+            if (*currentTime != new_time) {
+                *currentTime = new_time;
+                value_changed = true;
+                ImGui::MarkItemEdited(id);
+            }
+        }
+
+        // --- Draw Timeline Bar & Ticks (Optional) ---
+        draw_list->AddLine(ImVec2(bb.Min.x, bb.Min.y + size.y * 0.5f),
+                           ImVec2(bb.Max.x, bb.Min.y + size.y * 0.5f),
+                           ImGui::GetColorU32(ImGuiCol_SliderGrab)); // Use a subtle color
+
+        // --- Draw Keyframe Markers (Diamonds) ---
+        float diamond_half_size = height * 0.25f;
+        ImU32 marker_color = ImGui::GetColorU32(ImGuiCol_Button);
+        float min_pixel_distance = diamond_half_size * 1.5f;
+        float last_drawn_marker_x = -FLT_MAX;
+        LOGI("drawing markers!");
+        for (float key_time : keyframes) {
+            float key_x = bb.Min.x + (key_time / duration) * size.x;
+            float key_y = bb.Min.y + size.y * 0.5f;
+            LOGI("KeyTime=%.2f -> KeyX=%.1f\n", key_time, key_x);
+            if (key_x >= last_drawn_marker_x + min_pixel_distance)
+            {
+                // Draw diamond using 4 lines
+                draw_list->AddLine(ImVec2(key_x, key_y - diamond_half_size), ImVec2(key_x + diamond_half_size, key_y), marker_color);
+                draw_list->AddLine(ImVec2(key_x + diamond_half_size, key_y), ImVec2(key_x, key_y + diamond_half_size), marker_color);
+                draw_list->AddLine(ImVec2(key_x, key_y + diamond_half_size), ImVec2(key_x - diamond_half_size, key_y), marker_color);
+                draw_list->AddLine(ImVec2(key_x - diamond_half_size, key_y), ImVec2(key_x, key_y - diamond_half_size), marker_color);
+
+                last_drawn_marker_x = key_x;
+            }
+            ImVec2 marker_center(key_x, key_y);
+            if (ImGui::IsMouseHoveringRect(ImVec2(marker_center.x - handle_radius, marker_center.y - handle_radius),
+                                           ImVec2(marker_center.x + handle_radius, marker_center.y + handle_radius)))
+            {
+                ImGui::SetTooltip("Keyframe: %.2f s", key_time);
+            }
+        }
+
+        float current_x = bb.Min.x + (*currentTime / duration) * size.x;
+        ImU32 playhead_color = ImGui::GetColorU32(ImGuiCol_ButtonHovered); // A distinct color
+        float triangle_base_y = bb.Max.y - style.FramePadding.y; // Position triangle near bottom edge
+
+        draw_list->AddLine(ImVec2(current_x, bb.Min.y), ImVec2(current_x, bb.Max.y), playhead_color, 1.5f);
+
+        // Triangle Handle (pointing down, centered on the line)
+        float triangle_half_width = height * 0.25f;
+        float triangle_height = height * 0.3f;
+        draw_list->AddTriangleFilled(
+                ImVec2(current_x, bb.Min.y + triangle_height), // Top point
+                ImVec2(current_x - triangle_half_width, bb.Min.y), // Bottom-left
+                ImVec2(current_x + triangle_half_width, bb.Min.y), // Bottom-right
+                playhead_color
+        );
+
+        // Display current time text centered below the timeline
+        char time_str[64];
+        ImFormatString(time_str, sizeof(time_str), "%.2f / %.2f s", *currentTime, duration);
+        ImVec2 text_size = ImGui::CalcTextSize(time_str);
+
+        ImGui::TextUnformatted(time_str);
+
+
+        return value_changed;
     }
 
     inline void UpdateOrCreateKeyframe(ve::Animation::Sampler& sampler, float time, const glm::vec4& value) {
@@ -208,6 +533,7 @@ namespace ve{
             float animProgress = gameObject.model->animationManager->getProgress(currentAnim);
 
             float animationDuration = gameObject.model->animationManager->getDuration(currentAnim);
+            float& currentTime = gameObject.model->animationManager->currentAnimation->currentKeyFrameTime;
 
             // Slider for animation scrubbing
             ImGui::Text("Animation: %s", currentAnim.c_str());
@@ -222,11 +548,24 @@ namespace ve{
             if(timeChanged){
                 gameObject.model->animationManager->updateTimeSkip(*gameObject.model->skeleton);
             }
+            std::vector<float> keyframeTimes = gameObject.model->animationManager->getKeyframeTimes();
+
+            // Call the custom timeline widget
+//            bool  timeLineEdit = TimelineWidget("##AnimationTimeline", &currentTime, animationDuration, keyframeTimes);
+            bool timeLineEdit = ZoomableTimelineWidget("##AnimationTimeline", &currentTime, animationDuration, keyframeTimes);
+            if(timeLineEdit){
+                // Ensure time doesn't exceed duration slightly due to float inaccuracies if dragging
+                currentTime = ImClamp(currentTime, 0.0f, animationDuration);
+                gameObject.model->animationManager->updateTimeSkip(*gameObject.model->skeleton);
+                // If animation was playing, maybe pause it on manual scrub? Optional.
+                // isPaused = true;
+                // gameObject.model->animationManager->stop();
+            }
             static float playbackSpeed = 1.0f;
             ImGui::SliderFloat("Playback Speed", &gameObject.model->animationManager->currentAnimation->playbackSpeed, 0.1f, 3.0f, "%.1fx");
             // Playback controls
             ImGui::Columns(3, "AnimControls", false);
-            float& currentTime = gameObject.model->animationManager->currentAnimation->currentKeyFrameTime;
+
             // Rewind button
             if (ImGui::Button("Previous", ImVec2(-1, 0))) {
                 currentTime = fmax(0.0f,currentTime-0.02f);
@@ -255,10 +594,7 @@ namespace ve{
             if (ImGui::Checkbox("Repeat Animation", &isRepeat)) {
                 gameObject.model->animationManager->setRepeat();
             }
-            // Progress bar for visual reference
-            ImGui::ProgressBar(animProgress, ImVec2(0.0f, 0.0f),
-                               (std::to_string(int(animProgress * 100)) + "%").c_str()
-            );
+
             // Available Animations Dropdown
             static int currentAnimIndex = 0;
             std::vector<std::string>animationNames = gameObject.model->animationManager->getAllNames();

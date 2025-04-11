@@ -54,6 +54,7 @@ namespace ve{
             int getIndex(std::string const& animation);
             bool isCurrentAnimRepeat()const {return currentAnimation->getIsRepeat();}
             Animation* currentAnimation;
+            std::vector<float> getKeyframeTimes()const{return currentAnimation->getKeyframeTimes();}
         private:
             std::map<std::string, std::shared_ptr<Animation>> animationsMap;
             std::vector<std::shared_ptr<Animation>> animationsVector;

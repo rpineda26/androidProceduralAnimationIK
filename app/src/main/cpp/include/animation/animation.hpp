@@ -46,6 +46,7 @@ namespace ve{
             float getFirstKeyFrameTime() const{return firstKeyFrameTime;}
             std::string const& getName() const{return name;}
             bool getIsRepeat()const {return isRepeat;}
+            std::vector<float> getKeyframeTimes();
 
             std::vector<Channel> channels;
             std::vector<Sampler> samplers;
