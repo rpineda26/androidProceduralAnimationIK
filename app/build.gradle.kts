@@ -20,6 +20,7 @@ android {
                 arguments(
                     "-DANDROID_TOOLCHAIN=clang",
 //                    "-DANDROID_STL=c++_static",  // Change this from c++_static to c++_shared
+                    "-DANDROID_STL=c++_shared",
                     "-DVKB_VALIDATION_LAYERS=ON",
                 )
                 abiFilters("arm64-v8a")
@@ -53,6 +54,7 @@ android {
     buildFeatures {
         viewBinding = true
         prefab = true
+        mlModelBinding = true
     }
 
     sourceSets {
@@ -65,6 +67,23 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.tensorflow.lite.support)
+    implementation(libs.tensorflow.lite.metadata)
+////    implementation(libs.litert.support.api)
+
+//    implementation("com.google.ai.edge.litert:litert-api:1.4.0")
+//    implementation("com.google.ai.edge.litert:litert-support-api:1.4.0")
+//
+//    implementation("org.tensorflow:tensorflow-lite:2.4.0") {
+//        exclude(group = "org.tensorflow", module = "tensorflow-lite")
+//    }
+//    implementation("org.tensorflow:tensorflow-lite-support:0.1.0") {
+//        exclude(group = "org.tensorflow", module = "tensorflow-lite-support")
+//    }
+    val camerax_version = "1.5.0-beta01"
+    implementation("androidx.camera:camera-camera2:${camerax_version}")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -86,4 +105,5 @@ dependencies {
     // To use the Games Text Input Library
     // Do not include this if games-activity has been included
     // implementation(libs.androidx.games.text.input)
+    implementation("org.opencv:opencv:4.11.0")
 }
