@@ -9,7 +9,7 @@ namespace ve{
     static constexpr float MIN_ELEVATION = 1.0f;
     static constexpr float MAX_ELEVATION = 179.0f;
     static constexpr float MIN_RADIUS = 5.0f;
-    static constexpr float MAX_RADIUS = 15.0f;
+    static constexpr float MAX_RADIUS = 40.0f;
     class VeCamera{
         public:
             VeCamera() = default;
@@ -29,7 +29,7 @@ namespace ve{
             void getOrbitViewMatrix(glm::vec3 target);
 
         public:
-            float radius{10.0f};
+            float radius{25.0f};
             float horizontalAngle{0.0f};
             float verticalAngle{1.0f};
 

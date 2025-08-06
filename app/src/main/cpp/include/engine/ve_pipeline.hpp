@@ -43,6 +43,8 @@ namespace ve {
             static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
             static void enableAlphaBlending(PipelineConfigInfo& configInfo);
             void createShaderModule(const std::vector<uint8_t>& code, VkShaderModule* shaderModule);
+
+            VkPipeline getPipeline() { return graphicsPipeline; }
         private:
             void createGraphicsPipeline(AAssetManager *assetManager, const std::string& vertFilepath, const std::string& fragFilepath, const PipelineConfigInfo& configInfo);
             

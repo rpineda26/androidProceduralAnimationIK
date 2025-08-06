@@ -28,7 +28,6 @@ namespace ve{
         static void initializeImGuiFrame();
         static void renderImGuiFrame(VkCommandBuffer commandBuffer);
         static bool handleInput(const GameActivityMotionEvent* event);
-        static void updateImGuiTransform(uint32_t displayWidth, uint32_t displayHeight, Orientation currentOrientation);
         static void cleanUpImGui();
     };
 }
