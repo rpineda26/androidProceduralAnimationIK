@@ -1,5 +1,5 @@
 #include "pbr_render_system.hpp"
-
+#include "debug.hpp"
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
@@ -87,7 +87,7 @@ namespace ve {
                     push.isAnimated = true;
                     
                 }else{
-                    std::cout << "Object is not animated, object: "<< obj.getTitle() << std::endl;
+//                    LOGI("Object is not animated, object: %s", obj.getTitle());
                     push.isAnimated = false;
                 }
                 vkCmdPushConstants(

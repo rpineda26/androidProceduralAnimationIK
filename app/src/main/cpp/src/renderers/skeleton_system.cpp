@@ -1,4 +1,5 @@
 #include "skeleton_system.hpp"
+#include "debug.hpp"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -15,22 +16,22 @@ namespace ve {
         alignas(16) glm::vec4 color{1.0f};
     };
     struct LinePushConstantData {
-        glm::vec3 startPos;
-        float pad1{1.0f};  // Padding for alignment
-        glm::vec3 endPos;
-        float pad2{1.0f};  // Padding for alignment
-        glm::vec4 color{1.0f};
+        alignas(16) glm::mat4 modelMatrix{1.0f};
+        alignas(16) glm::vec4 color{1.0f};
     };
 
     SkeletonSystem::SkeletonSystem(
         VeDevice& device, AAssetManager *assetManager,
         VkRenderPass renderPass,
-        const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts
+        const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts,
+        float aspect
     ): veDevice{device} {
         if(assetManager==nullptr)
             throw std::runtime_error("SkeletonSystem::SkeletonSystem: assetManager is nullptr");
+        aspectRatio = aspect;
         createPipelineLayout(descriptorSetLayouts);
         createPipeline(assetManager, renderPass);
+        initializeConeGeometry();
     }
     SkeletonSystem::~SkeletonSystem() {
         vkDestroyPipelineLayout(veDevice.device(), jointSpheresPipelineLayout, nullptr);
@@ -94,11 +95,24 @@ namespace ve {
         //bone
         PipelineConfigInfo pipelineConfig2{};
         VePipeline::defaultPipelineConfigInfo(pipelineConfig2);
+
         pipelineConfig2.vertexAttributeDescriptions.clear();
         pipelineConfig2.vertexBindingDescriptions.clear();
-        pipelineConfig2.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+
+        VkPipelineRasterizationStateCreateInfo rasterizer{};
+        rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rasterizer.depthClampEnable = VK_FALSE;
+        rasterizer.rasterizerDiscardEnable = VK_FALSE;
+        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterizer.lineWidth = 1.0f;
+        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;        // Cull back faces
+        rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;     // Clockwise = front face
+        rasterizer.depthBiasEnable = VK_TRUE;
+
+        pipelineConfig2.rasterizationInfo = rasterizer;
         pipelineConfig2.depthStencilInfo.depthCompareOp = VK_COMPARE_OP_ALWAYS;
-        pipelineConfig2.rasterizationInfo.lineWidth = 1.0f;  // Adjust thickness here
+        pipelineConfig2.vertexBindingDescriptions = ConeMesh::Vertex::getBindingDescriptions();
+        pipelineConfig2.vertexAttributeDescriptions =  ConeMesh::Vertex::getAttributeDescriptions();
         pipelineConfig2.renderPass = renderPass;
         pipelineConfig2.pipelineLayout = boneLinesPipelineLayout;
         boneLinesPipeline = std::make_unique<VePipeline>(
@@ -109,8 +123,70 @@ namespace ve {
                 pipelineConfig2
         );
     }
+    void SkeletonSystem::initializeConeGeometry() {
+        coneMesh = std::make_unique<ConeMesh>();
+        coneMesh->generateCone(8); // 8-sided cone
 
+        // Create vertex buffer
+        VkDeviceSize vertexBufferSize = sizeof(ConeMesh::Vertex) * coneMesh->vertices.size();
+        coneVertexBuffer = std::make_unique<VeBuffer>(
+                veDevice,
+                sizeof(ConeMesh::Vertex),
+                coneMesh->vertices.size(),
+                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
+        coneVertexBuffer->map();
+        coneVertexBuffer->writeToBuffer(coneMesh->vertices.data());
+
+        // Create index buffer
+        VkDeviceSize indexBufferSize = sizeof(uint32_t) * coneMesh->indices.size();
+        coneIndexBuffer = std::make_unique<VeBuffer>(
+                veDevice,
+                sizeof(uint32_t),
+                coneMesh->indices.size(),
+                VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
+        coneIndexBuffer->map();
+        coneIndexBuffer->writeToBuffer(coneMesh->indices.data());
+    }
+    glm::mat4 SkeletonSystem::createConeTransform(const glm::vec3& start, const glm::vec3& end) {
+        glm::vec3 direction = end - start;
+        float length = glm::length(direction);
+
+        if (length < 0.001f) return glm::mat4(1.0f); // Degenerate case
+
+        direction = normalize(direction);
+
+        // Create rotation matrix to align cone with bone direction
+        glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+
+        // Handle case where direction is parallel to up vector
+        if (abs(dot(direction, up)) > 0.99f) {
+            up = glm::vec3(1.0f, 0.0f, 0.0f);
+        }
+
+        glm::vec3 right = normalize(cross(direction, up));
+        up = cross(right, direction);
+
+        glm::mat4 rotation = glm::mat4(
+                glm::vec4(right, 0.0f),
+                glm::vec4(direction, 0.0f), // Y axis points along bone
+                glm::vec4(up, 0.0f),
+                glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)
+        );
+
+        // Create transform: translate to start, rotate to align, scale by length
+        glm::mat4 transform = glm::translate(glm::mat4(1.0f), start) *
+                              rotation *
+                              glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, length, 1.0f));
+
+        return transform;
+    }
     void SkeletonSystem::renderJoints(FrameInfo& frameInfo, const std::vector<VkDescriptorSet>& descriptorSets) {
+        auto& gameObject = frameInfo.gameObjects.at(frameInfo.selectedObject);
+        if (!gameObject.model->hasAnimationData()) return;
         jointSpheresPipeline->bind(frameInfo.commandBuffer);
         vkCmdBindDescriptorSets(
             frameInfo.commandBuffer,
@@ -122,8 +198,7 @@ namespace ve {
             0,
             nullptr
         );
-        auto& gameObject = frameInfo.gameObjects.at(frameInfo.selectedObject);
-        if (!gameObject.model->hasAnimationData()) return;
+
 
         glm::mat4 worldTransform = gameObject.transform.mat4();
         auto* skeleton = gameObject.model->skeleton.get();
@@ -164,9 +239,9 @@ namespace ve {
             JointPushConstantData push{};
             push.modelMatrix = pointMatrix;
             if (frameInfo.selectedJointIndex!=-1 && i == frameInfo.selectedJointIndex) {
-                push.color = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f); // Highlight color (yellow)
+                push.color = glm::vec4(0.0f, 0.9f, 1.0f, 1.0f);
             } else {
-                push.color = glm::vec4(1.0f); // Regular color (light blue)
+                push.color = glm::vec4(1.0f, 1.0f, 1.0f, aspectRatio); // Regular color (light blue)
             }
             vkCmdPushConstants(
                     frameInfo.commandBuffer,
@@ -181,7 +256,12 @@ namespace ve {
         }
     }
     void SkeletonSystem::renderJointConnections(FrameInfo& frameInfo, const std::vector<VkDescriptorSet>& descriptorSets) {
+        auto& gameObject = frameInfo.gameObjects.at(frameInfo.selectedObject);
+        if (!gameObject.model->hasAnimationData()) return;
+
+        // Bind the cone pipeline (instead of line pipeline)
         boneLinesPipeline->bind(frameInfo.commandBuffer);
+
         vkCmdBindDescriptorSets(
                 frameInfo.commandBuffer,
                 VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -193,67 +273,61 @@ namespace ve {
                 nullptr
         );
 
-        auto& gameObject = frameInfo.gameObjects.at(frameInfo.selectedObject);
-        if (!gameObject.model->hasAnimationData()) return;
+        // Bind cone geometry
+        VkBuffer vertexBuffers[] = {coneVertexBuffer->getBuffer()};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(frameInfo.commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(frameInfo.commandBuffer, coneIndexBuffer->getBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
         glm::mat4 worldTransform = gameObject.transform.mat4();
         auto* skeleton = gameObject.model->skeleton.get();
         int numJoints = skeleton->joints.size();
 
-        // Save current joint matrices
+        // Same joint position calculation as before...
         std::vector<glm::mat4> savedMatrices = skeleton->jointMatrices;
-
-        // Calculate joint positions without applying inverse bind matrices
         std::vector<glm::vec3> jointPositions(numJoints);
         std::vector<bool> validJoint(numJoints, false);
 
         if (skeleton->isAnimated) {
-            // Apply animation transforms
+            // [Same animation calculation code as your original...]
             for (int16_t i = 0; i < numJoints; i++) {
                 skeleton->jointMatrices[i] = skeleton->joints[i].getAnimatedMatrix();
             }
 
-            // Now calculate the global transforms manually
             for (int i = 0; i < numJoints; i++) {
                 glm::mat4 globalMatrix = skeleton->jointMatrices[i];
                 int parentIndex = skeleton->joints[i].parentIndex;
 
                 if (parentIndex != ve::NO_PARENT) {
-                    // Apply parent transform (since we can't use updateJoint)
                     globalMatrix = skeleton->jointMatrices[parentIndex] * globalMatrix;
-
-                    // Update the matrix for this joint
                     skeleton->jointMatrices[i] = globalMatrix;
                 }
 
-                // Store the joint position
                 jointPositions[i] = glm::vec3(globalMatrix[3]);
-
-                // Mark as valid if not at origin
                 validJoint[i] = (glm::length(jointPositions[i]) >= 0.001f);
             }
 
-            // Render lines connecting joints based on parent-child relationships
+            // Render cones instead of lines
             for (int i = 0; i < numJoints; i++) {
                 int parentIndex = skeleton->joints[i].parentIndex;
 
-                // Skip if there's no parent or either joint is invalid
                 if (parentIndex == ve::NO_PARENT || !validJoint[i] || !validJoint[parentIndex]) {
                     continue;
                 }
 
-                // Get positions in world space
                 glm::vec3 childPosWorldSpace = glm::vec3(worldTransform * glm::vec4(jointPositions[i], 1.0f));
                 glm::vec3 parentPosWorldSpace = glm::vec3(worldTransform * glm::vec4(jointPositions[parentIndex], 1.0f));
 
+                // Create cone transformation matrix
+                glm::mat4 coneModelMatrix = createConeTransform(parentPosWorldSpace, childPosWorldSpace);
                 LinePushConstantData push{};
+                push.modelMatrix = coneModelMatrix;
 
-                push.startPos = parentPosWorldSpace;
-                push.endPos = childPosWorldSpace;
-                if( i ==frameInfo.selectedJointIndex)
-                    push.color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f); // Highlight color
-                else
-                    push.color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+                if (i == frameInfo.selectedJointIndex) {
+                    push.color = glm::vec4(0.0f, 0.9f, 1.0f, 1.0f);  // Light blue highlight, more opaque
+                } else {
+                    push.color = glm::vec4(0.3f, 0.35f, 0.2f, 0.7f);
+                }
 
                 vkCmdPushConstants(
                         frameInfo.commandBuffer,
@@ -264,12 +338,13 @@ namespace ve {
                         &push
                 );
 
-                // Draw a line with 2 vertices
-                vkCmdDraw(frameInfo.commandBuffer, 2, 1, 0, 0);
+                // Draw the cone using indexed rendering
+                vkCmdDrawIndexed(frameInfo.commandBuffer,
+                                 static_cast<uint32_t>(coneMesh->indices.size()),
+                                 1, 0, 0, 0);
             }
         }
 
-        // Restore original matrices
         skeleton->jointMatrices = savedMatrices;
     }
 }
