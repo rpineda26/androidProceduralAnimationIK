@@ -2,18 +2,330 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/ConstraintLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="horizontal"
     tools:context=".MainActivity">
 
-    <TextView
-        android:id="@+id/sample_text"
+    <androidx.camera.view.PreviewView
+        android:id="@+id/camera_preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="0dp"
+        android:layout_marginHorizontal="0dp"
+        android:alpha="0.95"
+        android:background="#40000000"
+        android:elevation="10dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+
+    <LinearLayout
+        android:id="@+id/linearLayout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!"
+        android:layout_marginTop="15dp"
+        android:layout_marginEnd="15dp"
+        android:elevation="15dp"
+        android:orientation="vertical"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageButton
+            android:id="@+id/btn_camera_toggle"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@null"
+            android:contentDescription="@string/toggle_camera_preview"
+            app:srcCompat="@android:drawable/ic_menu_camera" />
+
+        <TextView
+            android:id="@+id/cameraTV"
+            android:textColor="@color/white"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/camera"
+            android:visibility="gone"
+            android:textAlignment="center" />
+    </LinearLayout>
+
+
+
+    <ImageButton
+        android:id="@+id/btn_camera_capture"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@null"
+        android:backgroundTint="@color/purple_500"
+        android:contentDescription="@string/capture_photo"
+        android:elevation="15dp"
+        android:foregroundTint="#AF0000"
+        android:paddingStart="0dp"
+        android:paddingEnd="15dp"
+        android:scaleX="2"
+        android:scaleY="2"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:srcCompat="@drawable/record" />
+
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="15dp"
+        android:layout_marginTop="15dp"
+        android:elevation="5dp"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="15dp"
+            android:orientation="vertical">
+            <ImageButton
+                android:id="@+id/dropdown_menu"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@null"
+                android:contentDescription="@string/toggle_to_preview_dropdown_buttons"
+                app:srcCompat="@drawable/menu_24px" />
+            <TextView
+                android:id="@+id/menuTV"
+                android:textColor="@color/white"
+                android:layout_width="48dp"
+                android:layout_height="wrap_content"
+                android:textAlignment="center"
+                android:visibility="gone"
+                android:text="@string/menu"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="15dp"
+            android:orientation="vertical">
+            <ImageButton
+                android:id="@+id/xray_btn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="15dp"
+                android:background="@null"
+                android:contentDescription="@string/toggle_to_view_skeletal_joints_and_bones_overlay"
+                app:srcCompat="@drawable/connection" />
+            <TextView
+                android:id="@+id/xrayTV"
+                android:textColor="@color/white"
+                android:layout_width="48dp"
+                android:layout_height="wrap_content"
+                android:textAlignment="center"
+                android:visibility="gone"
+                android:text="@string/xray"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="15dp"
+            android:orientation="vertical">
+            <ImageButton
+                android:id="@+id/change_model_btn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="15dp"
+                android:background="@null"
+                android:contentDescription="@string/change_dog_breed_model"
+                app:srcCompat="@drawable/dog" />
+            <TextView
+                android:id="@+id/selectDogTV"
+                android:textColor="@color/white"
+                android:layout_width="48dp"
+                android:layout_height="wrap_content"
+                android:textAlignment="center"
+                android:visibility="gone"
+                android:text="@string/select_dog"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="15dp"
+            android:orientation="vertical">
+            <ImageButton
+                android:id="@+id/view_angle_btn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="15dp"
+                android:background="@null"
+                android:contentDescription="@string/change_camera_transform"
+                app:srcCompat="@drawable/view_angle" />
+            <TextView
+                android:id="@+id/viewTV"
+                android:textColor="@color/white"
+                android:layout_width="48dp"
+                android:layout_height="wrap_content"
+                android:textAlignment="center"
+                android:visibility="gone"
+                android:text="@string/edit_view"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="15dp"
+            android:orientation="vertical">
+            <ImageButton
+                android:id="@+id/transform_btn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="15dp"
+                android:background="@null"
+                android:contentDescription="@string/change_model_transform"
+                app:srcCompat="@drawable/translate" />
+            <TextView
+                android:id="@+id/trsTV"
+                android:textColor="@color/white"
+                android:layout_width="48dp"
+                android:layout_height="wrap_content"
+                android:textAlignment="center"
+                android:visibility="gone"
+                android:text="@string/edit_trs"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="15dp"
+            android:orientation="vertical">
+            <ImageButton
+                android:id="@+id/edit_btn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="15dp"
+                android:background="@null"
+                android:contentDescription="@string/edit_skeletal_vertices"
+                app:srcCompat="@drawable/edit" />
+            <TextView
+                android:id="@+id/jointsTV"
+                android:textColor="@color/white"
+                android:layout_width="48dp"
+                android:layout_height="wrap_content"
+                android:textAlignment="center"
+                android:visibility="gone"
+                android:text="@string/edit_joints"/>
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="15dp"
+            android:orientation="vertical">
+            <ImageButton
+                android:id="@+id/animations_btn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@null"
+                android:contentDescription="@string/change_animations"
+                app:srcCompat="@drawable/animations" />
+            <TextView
+                android:id="@+id/animationsTV"
+                android:textColor="@color/white"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAlignment="center"
+                android:visibility="gone"
+                android:text="@string/animation"/>
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/linearLayoutMediaControl"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="15dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent">
+
+        <ImageButton
+            android:id="@+id/backward_btn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="10dp"
+            android:background="@null"
+            android:contentDescription="@string/jump_backward_in_time_frame"
+            app:srcCompat="@drawable/keyboard_double_arrow_left_24px" />
+
+        <ImageButton
+            android:id="@+id/playPause_btn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="10dp"
+            android:background="@null"
+            android:contentDescription="@string/toggle_play_or_pause"
+            app:srcCompat="@drawable/pause_24px" />
+
+        <ImageButton
+            android:id="@+id/forward_btn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="10dp"
+            android:background="@null"
+            android:contentDescription="@string/jump_forward_in_time_frame"
+            app:srcCompat="@drawable/keyboard_double_arrow_right_24px" />
+
+
+    </LinearLayout>
+
+
+    <SeekBar
+        android:id="@+id/seekBar"
+        style="@style/Widget.AppCompat.SeekBar.Discrete"
+        android:layout_width="680dp"
+        android:layout_height="30dp"
+        android:layout_marginBottom="5dp"
+        android:max="10"
+        android:progress="3"
+        app:layout_constraintBottom_toTopOf="@+id/linearLayoutMediaControl"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.497"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <SeekBar
+        android:id="@+id/sensitivity_slider"
+        android:layout_width="200dp"
+        android:layout_height="30dp"
+        android:max="275"
+        android:progress="75"
+        android:rotation="270"
+        android:visibility="gone"
+        android:translationX="60dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/sensitivityTV"
+        android:textColor="@color/white"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/sensitivity"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="@id/sensitivity_slider"
+        android:translationX="70dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageButton
+        android:id="@+id/help_btn"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:contentDescription="@string/ask_for_help"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:background="@null"
+        android:layout_marginBottom="15dp"
+        android:layout_marginEnd="15dp"
+        app:srcCompat="@drawable/help_24px" />
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>
