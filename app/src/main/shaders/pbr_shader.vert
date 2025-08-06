@@ -10,12 +10,9 @@ layout(location = 6) in vec4 weights;
 
 //outputs to fragment shader
 layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec3 fragPosition;
-layout(location = 2) out vec3 fragNormal;
-layout(location = 3) out vec2 fragUV;
-layout(location = 4) out vec3 fragTangentPos;
-layout(location = 5) out vec3 fragTangentView;
-layout(location = 6) out vec3 fragTangentLightPos[10];
+layout(location = 1) out vec2 fragUV;
+layout(location = 2) out vec3 fragPosWorld;
+layout(location = 3) out vec3 fragNormalWorld;
 
 struct PointLight {
     vec4 position;
@@ -35,13 +32,12 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     float time;
 } ubo;
 
-layout(set = 1, binding = 0) uniform sampler2D textureSampler[3]; 
-layout(set = 1, binding = 1) uniform sampler2D normalSampler[3];
-layout(set = 1, binding = 2) uniform sampler2D specularSampler[3];
 
-layout(set = 2, binding = 0) uniform JointMatrixBufferObject {
+layout(set = 1, binding = 0) uniform JointMatrixBufferObject {
     mat4 jointMatrices[200];
 } jmbo;
+layout(set = 2, binding = 0) uniform sampler2D albedoSampler;
+layout(set = 3, binding = 0) uniform samplerCubeShadow shadowCubeMaps[2];
 
 layout(push_constant) uniform Push {
     mat4 modelMatrix;
@@ -51,60 +47,66 @@ layout(push_constant) uniform Push {
     bool isAnimated;
 } push;
 
-void main(){
+void main() {
     mat4 skinMatrix = mat4(1.0);
     vec4 skinnedPosition = vec4(position, 1.0);
+    vec3 skinnedNormal = normal;
+
     fragColor = color;
-    
-    // Check if we need to apply skinning
-    if(push.isAnimated) {
+
+    // Apply skinning if needed
+    if (push.isAnimated) {
         skinMatrix = mat4(0.0);
         skinnedPosition = vec4(0.0);
-        // Blend the joint matrices weighted by vertex weights
+        skinnedNormal = vec3(0.0);
+
         float totalWeight = 0.0;
-        for(int i = 0; i < 4; i++) {
-            totalWeight += weights[i];
-            if(weights[i] == 0)
-                continue;
-            if(joints[i] >= 200){
+        for (int i = 0; i < 4; i++) {
+            if (weights[i] == 0.0) continue;
+            if (joints[i] >= 200) {
+                // Invalid joint, use identity
                 skinMatrix = mat4(1.0);
                 skinnedPosition = vec4(position, 1.0);
+                skinnedNormal = normal;
                 break;
             }
-            if(determinant(mat3(jmbo.jointMatrices[joints[i]])) < 0.0) {
-                // This joint has negative scaling
-                // You could color this red for debugging
+
+            totalWeight += weights[i];
+
+            // Check for problematic joint matrices
+            if (determinant(mat3(jmbo.jointMatrices[joints[i]])) < 0.0) {
+                // Debug: color problematic joints red
                 fragColor = vec3(1.0, 0.0, 0.0);
             }
+
+            // Blend position and normal
             vec4 localPosition = jmbo.jointMatrices[joints[i]] * vec4(position, 1.0);
+            vec3 localNormal = mat3(jmbo.jointMatrices[joints[i]]) * normal;
+
             skinnedPosition += localPosition * weights[i];
+            skinnedNormal += localNormal * weights[i];
             skinMatrix += jmbo.jointMatrices[joints[i]] * weights[i];
         }
+
+        // Normalize if we have valid weights
+        if (totalWeight > 0.0) {
+            skinnedPosition /= totalWeight;
+            skinnedNormal = normalize(skinnedNormal);
+        }
     }
-    
-        
+
+    // Transform to world space
     vec4 positionWorld = push.modelMatrix * skinnedPosition;
-    // vec4 positionWorld = push.modelMatrix * vec4(position, 1.0); 
+    fragPosWorld = positionWorld.xyz;
+
+    // Transform normal to world space
+    // Use the combined model + skin matrix for normal transformation
+    mat3 normalMatrix = transpose(inverse(mat3(push.modelMatrix * skinMatrix)));
+    fragNormalWorld = normalize(normalMatrix * skinnedNormal);
+
+    // Final vertex position
     gl_Position = ubo.projectionMatrix * (ubo.viewMatrix * positionWorld);
-    fragPosition = positionWorld.xyz;
-//    fragColor = color * push.baseColor;
 
+    // Pass through UV coordinates
     fragUV = uv;
-
-    //compute TBN matrix
-    mat3 normalMatrix = transpose(inverse(mat3(push.modelMatrix) * mat3(skinMatrix)));
-    vec3 T = normalize(normalMatrix * tangent);
-    vec3 N = normalize(normalMatrix * normal); 
-    T = normalize(T - dot(T, N) * N);
-    vec3 B = cross(N, T);
-    mat3 TBN = transpose(mat3(T, B, N));
-    //convert vectors from world space to tangent space
-    vec3 cameraPosWorld = vec3(ubo.invViewMatrix * vec4(0.0, 0.0, 0.0, 1.0));
-    fragNormal = N;
-    fragTangentPos = TBN * fragPosition;
-    fragTangentView = TBN * cameraPosWorld;
-    for(int i = 0; i < ubo.pointLightCount; i++){
-        PointLight pointLight = ubo.pointLights[i];
-        fragTangentLightPos[i] = TBN * pointLight.position.xyz;
-    }
 }

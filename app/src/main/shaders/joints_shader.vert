@@ -26,5 +26,10 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
 
 void main() {
     gl_Position = ubo.projectionMatrix * ubo.viewMatrix * push.modelMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-    gl_PointSize = push.size * 30.0; // Adjust for screen size
+    float adjustedSize = push.size * 30.0;
+    if (push.color.w > 1.0) {
+        // Landscape mode - make points narrower
+        adjustedSize *= (1.0 / push.color.w);
+    }
+    gl_PointSize = adjustedSize;
 }

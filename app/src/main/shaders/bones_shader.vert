@@ -1,5 +1,6 @@
 #version 450
-
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec3 normal;
 struct PointLight{
     vec4 position;
     vec4 color;
@@ -7,11 +8,8 @@ struct PointLight{
     int objId;
 };
 
-layout(push_constant) uniform PushConstants {
-    vec3 startPos;
-    float pad1;
-    vec3 endPos;
-    float pad2;
+layout(push_constant) uniform Push {
+    mat4 modelMatrix;      // Transform to position/orient/scale cone
     vec4 color;
 } push;
 
@@ -26,12 +24,21 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     float time;
 } ubo;
 
-layout(location = 0 ) out vec4 fragColor;
+layout(location = 0) out vec3 fragColor;
+layout(location = 1) out vec3 fragPosWorld;
+layout(location = 2) out vec3 fragNormalWorld;
 
 void main() {
-    vec3 position = (gl_VertexIndex == 0) ? push.startPos : push.endPos;
+    vec4 positionWorld = push.modelMatrix * vec4(position, 1.0);
+    gl_Position = ubo.projectionMatrix * ubo.viewMatrix * positionWorld;
 
-    gl_Position = ubo.projectionMatrix * ubo.viewMatrix * vec4(position, 1.0);
+    // Pass world position to fragment shader
+    fragPosWorld = positionWorld.xyz;
 
-    fragColor = push.color;
+    // Transform normal to world space
+    // Use normal matrix (inverse transpose of model matrix)
+    mat3 normalMatrix = transpose(inverse(mat3(push.modelMatrix)));
+    fragNormalWorld = normalize(normalMatrix*normal);
+    // Pass color to fragment shader
+    fragColor = push.color.rgb;
 }

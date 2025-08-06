@@ -34,5 +34,5 @@ void main() {
 
     // Add some shading for 3D appearance
     float lighting = 0.5 + 0.5 * (1.0 - dist * 2.0);
-    outColor = vec4(push.color.rgb * lighting, push.color.a);
+    outColor = vec4(push.color.rgb * lighting, 1.0);
 }
