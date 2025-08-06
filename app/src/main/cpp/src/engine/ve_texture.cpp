@@ -21,11 +21,13 @@ namespace ve{
     }
     void VeTexture::createTextureImage(AAssetManager *assetManager, VkFormat textureFormat, const std::string& path){
         int texWidth, texHeight, texChannels;
+        LOGI("albedo image for path: %s", path.c_str());
         std::vector<uint8_t> imageData = ve::loadBinaryFileToVector(path.c_str(), assetManager);
         if(imageData.size()==0){
             LOGE("Failed to load texture image!");
             return;
         }
+
         stbi_uc* pixels = stbi_load_from_memory(imageData.data(),imageData.size(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
         if(pixels==nullptr){
             LOGE("Failed to load image to memory %s", stbi_failure_reason());

@@ -141,22 +141,31 @@ namespace ve{
         return attributeDescriptions;
     }
     
-    std::unique_ptr<VeModel> VeModel::createModelFromFile(VeDevice& device, AAssetManager *assetManager, const std::string& filePath){
+    std::unique_ptr<VeModel> VeModel::createModelFromFile(VeDevice& device, AAssetManager *assetManager, VeDescriptorPool& descriptorPool, const std::string& filePath){
         Builder builder{};
         std::string extension = filePath.substr(filePath.find_last_of(".") + 1);
         if (extension == "gltf" || extension == "glb") {
             builder.loadModelGLTF(filePath, assetManager);
         }
-//        else {
-//            // Default to OBJ for other formats
-//            builder.loadModel(filePath, assetManager);
-//        }
         
         auto model = std::make_unique<VeModel>(device, builder);
         if(extension == "gltf" || extension == "glb"){
             model->loadSkeleton(builder.model);
             model->loadAnimations(builder.model);
         }
+        MaterialComponent mat{};
+        std::filesystem::path path(filePath);
+        std::string breed_dir = path.parent_path().string();  // e.g. "models/corgi"
+        std::string texturePath = breed_dir + "/textures/albedo.png";
+        mat.albedo = std::make_unique<VeTexture>(device, assetManager, texturePath);
+        mat.albedoInfo = VkDescriptorImageInfo{mat.albedo->getSampler(), mat.albedo->getImageView(), mat.albedo->getLayout()};
+        mat.materialSetLayout = VeDescriptorSetLayout::Builder(device)
+                .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1)
+                .build();
+            VeDescriptorWriter(*mat.materialSetLayout, descriptorPool)
+                    .writeImage(0,&mat.albedoInfo, 1)
+                    .build(mat.materialDescriptorSets);
+        model->materialComponent = std::make_unique<MaterialComponent>(std::move(mat));
         return model;
     }
     std::unique_ptr<VeModel> VeModel::createCubeMap(VeDevice& device, glm::vec3 cubeVetices[CUBE_MAP_VERTEX_COUNT]){
@@ -523,9 +532,16 @@ namespace ve{
                             };
                         }
                     } else {
-                        LOGE("Unsupported joint indices component type: %d", jointsAccessor->componentType);
+                        for (size_t i = 0; i < vertexTotalCount; i++) {
+                            tempVertices[i].jointIndices = {0, 0, 0, 0}; // Or whatever default makes sense
+                        }
                     }
 
+                }else {
+                    // Default joint indices if attribute is not present
+                    for (size_t i = 0; i < vertexTotalCount; i++) {
+                        tempVertices[i].jointIndices = {0, 0, 0, 0}; // Or whatever default makes sense
+                    }
                 }
             
                 // New - Load joint weights if available
@@ -552,6 +568,12 @@ namespace ve{
                             // If no weights, assign fully to the first joint
                             tempVertices[i].jointWeights = { 1.0f, 0.0f, 0.0f, 0.0f };
                         }
+                    }
+                }else {
+                    // Default joint weights if attribute is not present
+                    for (size_t i = 0; i < vertexTotalCount; i++) {
+                        // Weight for the first joint is 1.0, others 0.0
+                        tempVertices[i].jointWeights = {1.0f, 0.0f, 0.0f, 0.0f};
                     }
                 }
                 // Load indices
@@ -587,28 +609,43 @@ namespace ve{
                 }
             }
         }
-        
+
         // Compute tangents for normal mapping
         for (size_t i = 0; i < indices.size(); i += 3) {
-            if (i + 2 >= indices.size()) break;
-            
-            glm::vec3 edge1 = vertices[indices[i + 1]].position - vertices[indices[i]].position;
-            glm::vec3 edge2 = vertices[indices[i + 2]].position - vertices[indices[i]].position;
-            
-            glm::vec2 deltaUV1 = vertices[indices[i + 1]].uv - vertices[indices[i]].uv;
-            glm::vec2 deltaUV2 = vertices[indices[i + 2]].uv - vertices[indices[i]].uv;
-            
-            float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
-            if (std::isfinite(f)) {
-                glm::vec3 tangent;
+            if (i + 2 >= indices.size()) break; // Good boundary check
+
+            Vertex& v0 = vertices[indices[i]];
+            Vertex& v1 = vertices[indices[i+1]];
+            Vertex& v2 = vertices[indices[i+2]];
+
+            glm::vec3 edge1 = v1.position - v0.position;
+            glm::vec3 edge2 = v2.position - v0.position;
+
+            glm::vec2 deltaUV1 = v1.uv - v0.uv;
+            glm::vec2 deltaUV2 = v2.uv - v0.uv;
+
+            float det = deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y;
+
+            glm::vec3 tangent;
+
+            if (std::abs(det) < 1e-6f) { // Check if determinant is close to zero
+                // UVs are degenerate or co-linear, cannot compute tangent in the standard way.
+                // Create an orthonormal basis with the normal.
+                // Pick an arbitrary vector not parallel to the normal.
+                glm::vec3 helper = (std::abs(v0.normal.x) > 0.9f) ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
+                tangent = glm::normalize(glm::cross(v0.normal, helper));
+                // (Optionally compute bitangent: glm::vec3 bitangent = glm::normalize(glm::cross(v0.normal, tangent));)
+            } else {
+                float f = 1.0f / det;
                 tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
                 tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
                 tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
-                
-                vertices[indices[i]].tangent = tangent;
-                vertices[indices[i + 1]].tangent = tangent;
-                vertices[indices[i + 2]].tangent = tangent;
+                tangent = glm::normalize(tangent); // Normalize the tangent
             }
+
+            v0.tangent = tangent;
+            v1.tangent = tangent; // Assigning the same tangent to all three vertices of the triangle
+            v2.tangent = tangent; // This is a common simplification. For better quality, average tangents at shared vertices.
         }
     }
 
@@ -622,6 +659,7 @@ namespace ve{
             vertex.color = { 1.0f, 1.0f, 1.0f };
             vertex.normal = { 0.0f, 0.0f, 0.0f };
             vertex.uv = { 0.0f, 0.0f };
+
             vertex.jointIndices = glm::ivec4(0);
             vertex.jointWeights = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
             if (uniqueVertices.count(vertex) == 0) {
@@ -635,27 +673,33 @@ namespace ve{
         vertices.clear();
         indices.clear();
         std::unordered_map<Vertex, uint32_t, VertexHash> uniqueVertices{};
+
         // Define quad vertices
         glm::vec3 quadVertices[4] = {
-            { -1.0f, 0.0f,  1.0f }, // Front-left
-            {  1.0f, 0.0f,  1.0f }, // Front-right
-            { -1.0f, 0.0f, -1.0f }, // Back-left
-            {  1.0f, 0.0f, -1.0f }  // Back-right
+                { -1.0f, 0.0f,  1.0f }, // Front-left
+                {  1.0f, 0.0f,  1.0f }, // Front-right
+                { -1.0f, 0.0f, -1.0f }, // Back-left
+                {  1.0f, 0.0f, -1.0f }  // Back-right
         };
+
+        // Tile the UV coordinates - this creates 8x8 tiles
+        float tileCount = 4.0f;
         float uvs[4][2] = {
-                {0.0f, 0.0f},  // Front-left
-                {1.0f, 0.0f},  // Front-right
-                {0.0f, 1.0f},  // Back-left
-                {1.0f, 1.0f}   // Back-right
+                {0.0f, 0.0f},              // Front-left
+                {tileCount, 0.0f},         // Front-right
+                {0.0f, tileCount},         // Back-left
+                {tileCount, tileCount}     // Back-right
         };
+
         for (size_t i = 0; i < 4; i++) {
             Vertex vertex{};
             vertex.position = quadVertices[i];
             vertex.color = { 1.0f, 1.0f, 1.0f };
-            vertex.normal =  { 0.0f, 1.0f, 0.0f };;
-            vertex.uv = { (i % 2), (i / 2) };
+            vertex.normal = { 0.0f, 1.0f, 0.0f };
+            vertex.uv = { uvs[i][0], uvs[i][1] };  // Use the tiled UVs
             vertex.jointIndices = glm::ivec4(0);
             vertex.jointWeights = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+
             if (uniqueVertices.count(vertex) == 0) {
                 uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
                 vertices.push_back(vertex);

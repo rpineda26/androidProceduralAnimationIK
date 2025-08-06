@@ -14,7 +14,7 @@
 #include <cstring>
 namespace ve{
     struct TransformComponent{
-        glm::vec3 translation{};
+        glm::vec3 translation{0.0f,0.0f,0.0f};
         glm::vec3 scale{1.0f,1.0f,1.0f};
 //        glm::vec3 rotation = glm::vec3{glm::radians(180.0f),0.0f,0.0f};
         glm::vec3 rotation = glm::vec3{0.0f,0.0f,0.0f};
@@ -110,6 +110,7 @@ namespace ve{
             uint32_t normalIndex = -1;
             uint32_t specularIndex = -1;
             float smoothness = 0.0f;
+
     };
 
 }

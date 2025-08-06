@@ -1,16 +1,19 @@
 #pragma once
 
+//user defined headers
 #include "ve_device.hpp"
 #include "skeleton.hpp"
 #include "animation_manager.hpp"
 #include "buffer.hpp"
-
+#include "ve_descriptors.hpp"
+#include "ve_texture.hpp"
+//library headers
 #include <android/asset_manager.h>
 #include <tiny_gltf.h>
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
-
+//cpp headers
 #include <vector>
 #include <memory>
 
@@ -19,6 +22,12 @@
 #endif
 
 namespace ve{
+    struct MaterialComponent{
+        std::unique_ptr<VeDescriptorSetLayout> materialSetLayout;
+        VkDescriptorSet materialDescriptorSets;
+        std::unique_ptr<VeTexture> albedo;
+        VkDescriptorImageInfo albedoInfo;
+    };
 
     class VeModel{
     public:
@@ -61,9 +70,10 @@ namespace ve{
         VeModel(const VeModel&) = delete;
         VeModel& operator=(const VeModel&) = delete;
 
-        static std::unique_ptr<VeModel> createModelFromFile(VeDevice& device,AAssetManager *assetManager, const std::string& filePath);
+        static std::unique_ptr<VeModel> createModelFromFile(VeDevice& device,AAssetManager *assetManager, VeDescriptorPool& descriptorPool, const std::string& filePath);
         static std::unique_ptr<VeModel> createCubeMap(VeDevice& device, glm::vec3 cubeVetices[CUBE_MAP_VERTEX_COUNT]);
         static std::unique_ptr<VeModel> createQuad(VeDevice& device);
+
         void bind(VkCommandBuffer commandBuffer);
         void draw(VkCommandBuffer commandBuffer);
         void drawInstanced(VkCommandBuffer commandBuffer, uint32_t instanceCount);
@@ -74,6 +84,8 @@ namespace ve{
 
         std::unique_ptr<Skeleton> skeleton;
         std::shared_ptr<AnimationManager> animationManager;
+
+        std::unique_ptr<MaterialComponent> materialComponent = nullptr;
 
 
     private:
@@ -97,5 +109,6 @@ namespace ve{
         uint32_t indexCount;
         //animation data
         bool hasAnimation{false};
+        //materials
     };
 }

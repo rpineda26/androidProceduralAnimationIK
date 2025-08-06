@@ -180,15 +180,26 @@ namespace ve{
         return cubeObj;
     }
     void VeGameObject::updateAnimation(float deltaTime, int frameCounter, int frameIndex){
-        model->updateAnimation(deltaTime, frameCounter, frameIndex);
         const uint32_t maxJoints = 200;
-        uint32_t numJoints = std::min(static_cast<uint32_t>(model->skeleton->jointMatrices.size()), maxJoints);
+        if(model->hasAnimationData()) {
+            model->updateAnimation(deltaTime, frameCounter, frameIndex);
 
-        animationComponent->shaderJointsBuffer[frameIndex]->writeToBuffer(
-                static_cast<void*>(model->skeleton->jointMatrices.data()),
-                numJoints * sizeof(glm::mat4)  // Only copy the required size
-        );
+            uint32_t numJoints = std::min(
+                    static_cast<uint32_t>(model->skeleton->jointMatrices.size()), maxJoints);
 
+            animationComponent->shaderJointsBuffer[frameIndex]->writeToBuffer(
+                    static_cast<void *>(model->skeleton->jointMatrices.data()),
+                    numJoints * sizeof(glm::mat4)  // Only copy the required size
+            );
+        }else {
+            std::vector<glm::mat4> defaultIdentityMatrices(maxJoints, glm::identity<glm::mat4>());
+
+            // 2. Write these identity matrices to the shader buffer.
+            animationComponent->shaderJointsBuffer[frameIndex]->writeToBuffer(
+                    static_cast<void *>(defaultIdentityMatrices.data()), // Pointer to the data
+                    maxJoints * sizeof(glm::mat4)                      // Total size of the data
+            );
+        }
         animationComponent->shaderJointsBuffer[frameIndex]->flush();
     }
 }
