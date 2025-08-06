@@ -10,13 +10,18 @@
 #include "ve_normal_map.hpp"
 #include "buffer.hpp"
 #include "input_handler.hpp"
-
+#include "model_manager.hpp"
+#include "joint_editor.hpp"
+#include "frame_info.hpp"
+#include "shadow_manager.hpp"
+#include "animation_sequencer.hpp"
 //render systems
 #include "pbr_render_system.hpp"
 #include "point_light_system.hpp"
 #include "outline_highlight_system.hpp"
 #include "cube_map_system.hpp"
 #include "skeleton_system.hpp"
+#include "shadow_render_system.hpp"
 
 //core libraries
 #include <android/asset_manager.h>
@@ -29,24 +34,8 @@
 #include <vector>
 
 namespace ve {
-    class FirstApp{
-        struct EngineInfo{
-            float frameTime{0.0f};
-            float elapsedTime{0.0f};
-            std::chrono::time_point<std::chrono::steady_clock,std::chrono::duration<long long, std::ratio<1,1000000000>>>
-                currentTime = std::chrono::high_resolution_clock::now();;
-            int numLights{0};
-            int frameCount{0};
-            int cubeMapIndex{3};
-            int animatedObjIndex{1};
-            int selectedObject{1};
-            int selectedJointIndex{-1};
-            bool showOutlignHighlight{true};
-            bool engineInitialized{false};
-            VeCamera camera{};
-            VeGameObject viewerObject = VeGameObject::createGameObject();
-        };
 
+    class FirstApp{
         struct AAssetManagerDeleter {
             void operator()(AAssetManager* newAssetManager) {
                 // AAssetManager is typically managed by the Android system
@@ -70,20 +59,42 @@ namespace ve {
             bool isInitialized() const {return engineInfo.engineInitialized;}
             void setInitialized(bool value) {engineInfo.engineInitialized = value;}
             void controlCamera();
-
-        public:
+            std::string changeModel(std::string name);
             InputHandler inputHandler{};
-             
-        private:
+            void toggleDogModelList() {engineInfo.showModelsList = !engineInfo.showModelsList;}
+            void toggleChangeAnimationList() {engineInfo.changeAnimationList = !engineInfo.changeAnimationList;}
+            void toggleEditJointMode() {engineInfo.showEditJointMode = !engineInfo.showEditJointMode;}
+            void toggleOutlignHighlight() {engineInfo.showOutlignHighlight = !engineInfo.showOutlignHighlight;}
+            bool toggleAnimationPlayer(bool value);
+            void pauseAnimation();
+            void resumeAnimation();
+            bool isAnimationPlaying();
+            void jumpForward();
+            void jumpBackward();
+            float getAnimationDuration();
+            void setAnimationTime(float time);
+            float getCurrentAnimationTime();
+            void setModelMode(bool value);
+            void cleanup();
+            void cleanupSurface();
+
+    private:
             void loadGameObjects();
             void loadTextures();
             int getNumLights();
+            void renderDogModelList();
+            void updateModelLoadingStatus();
+            void drawSimpleSpinner(const std::string& loadingText);
+            void renderChangeAnimationList();
+            void renderShadowFace(VkCommandBuffer commandBuffer, int lightIndex, int faceIndex, const glm::mat4& viewProjMatrix, FrameInfo frameInfo, PointLight lights[10]);
 
-            //core engine components
+
+        //core engine components
             std::unique_ptr<VeWindow> veWindow;
             std::unique_ptr<VeDevice> veDevice;
             std::unique_ptr<VeRenderer> veRenderer;
             std::unique_ptr<AAssetManager,AAssetManagerDeleter> assetManager;
+            std::unique_ptr<ModelManager> g_modelManager;
 
             //Gui
             VkRenderPass imGuiRenderPass = VK_NULL_HANDLE;
@@ -98,6 +109,10 @@ namespace ve {
             //texture descriptor
             std::unique_ptr<VeDescriptorSetLayout> textureSetLayout;
             VkDescriptorSet textureDescriptorSet = VK_NULL_HANDLE;
+            //shadowdescriptor
+            std::unique_ptr<VeDescriptorSetLayout> shadowSetLayout;
+            VkDescriptorSet shadowDescriptorSet = VK_NULL_HANDLE;
+            std::vector<VkDescriptorImageInfo> shadowMapInfos;
 
             //texture info
             std::vector<std::unique_ptr<VeTexture>> textures;
@@ -113,10 +128,13 @@ namespace ve {
             std::unique_ptr<OutlineHighlightSystem> outlineHighlightSystem;
             std::unique_ptr<CubeMapRenderSystem> cubeMapRenderSystem;
             std::unique_ptr<SkeletonSystem> skeletonSystem;
+            std::unique_ptr<ShadowRenderSystem> shadowRenderSystem;
 
             //scene entities
             VeGameObject::Map gameObjects;
             EngineInfo engineInfo;
+            AnimationSequencer animationSequencer;
+            std::unique_ptr<ShadowManager> shadowManager;
 
     };
 }

@@ -1,5 +1,6 @@
 #include "ve_imgui.hpp"
 #include "debug.hpp"
+#include <ImGuizmo.h>
 #include <iostream>
 namespace ve{
     VkDescriptorPool VeImGui::createDescriptorPool(VkDevice device){
@@ -134,129 +135,91 @@ namespace ve{
         io.Fonts->AddFontDefault(&font_cfg);
 
         ImGuiStyle &style = ImGui::GetStyle();
+        // Make scrollbars much thicker for mobile
+        style.ScrollbarSize = 20.0f;  // Default is usually 14-16px
+        style.ScrollbarRounding = 10.0f;
+        style.GrabMinSize = 20.0f;  // Default is usually 10px
+        style.GrabRounding = 10.0f;
         style.ScaleAllSizes(3.0f);
+        float screen_width = 0.0f;
+        float screen_height = 0.0f;
+
+        screen_width = (float)ANativeWindow_getWidth(veWindow.getWindow());
+        screen_height = (float)ANativeWindow_getHeight(veWindow.getWindow());
+        io.DisplaySize = ImVec2(screen_width, screen_height);
+        float aspect_ratio = screen_height / screen_width;
+//        LOGI("Screen Width: %f", screen_width);
+//        LOGI("Screen Height: %f", screen_height);
+        // Scale fonts to maintain readability
+        LOGI("native_width: %f, native_height: %f, io_width: %f, io_height: %f", screen_width, screen_height, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+
     }
     void VeImGui::initializeImGuiFrame(){
-         ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplVulkan_NewFrame();
         ImGui_ImplAndroid_NewFrame();
         ImGui::NewFrame();
+
     }
+
     void VeImGui::renderImGuiFrame(VkCommandBuffer commandBuffer){
         ImGui::Render();
-        ImDrawData *main_draw_data = ImGui::GetDrawData();
+        ImDrawData* main_draw_data = ImGui::GetDrawData();
+
         if (main_draw_data) {
             ImGui_ImplVulkan_RenderDrawData(main_draw_data, commandBuffer);
         }
     }
+
     bool VeImGui::handleInput(const GameActivityMotionEvent* event) {
         ImGuiIO& io = ImGui::GetIO();
 
-        // Static variables to track previous position and interaction state
         static float lastX = 0.0f;
         static float lastY = 0.0f;
         static bool isDragging = false;
-        static float dragStartX = 0.0f;
-        static float dragStartY = 0.0f;
-        static int dragDirection = 0; // 0=undetermined, 1=horizontal, 2=vertical
-        static const float DIRECTION_THRESHOLD = 15.0f; // Pixels before locking direction
+
+        // Store ImGuizmo state for your game logic to check
+        static bool imguizmoActive = false;
 
         switch (event->action & AMOTION_EVENT_ACTION_MASK) {
             case AMOTION_EVENT_ACTION_DOWN:
-                lastX = dragStartX = event->pointers[0].rawX;
-                lastY = dragStartY = event->pointers[0].rawY;
+                lastX = event->pointers[0].rawX;
+                lastY = event->pointers[0].rawY;
                 isDragging = true;
-                dragDirection = 0; // Reset direction on new drag
+
                 io.AddMousePosEvent(lastX, lastY);
                 io.AddMouseButtonEvent(0, true);
-                if (io.WantCaptureMouse) return true;
-                break;
+
+                // Update ImGuizmo state
+                imguizmoActive = ImGuizmo::IsOver() || ImGuizmo::IsUsing();
+
+                return io.WantCaptureMouse || imguizmoActive;
 
             case AMOTION_EVENT_ACTION_UP:
-                isDragging = false;
-                dragDirection = 0;
                 io.AddMousePosEvent(event->pointers[0].rawX, event->pointers[0].rawY);
                 io.AddMouseButtonEvent(0, false);
-                if (io.WantCaptureMouse) return true;
-                break;
+                isDragging = false;
+                imguizmoActive = false;
+
+                return io.WantCaptureMouse || ImGuizmo::IsUsing();
 
             case AMOTION_EVENT_ACTION_MOVE:
                 float currentX = event->pointers[0].rawX;
                 float currentY = event->pointers[0].rawY;
+
                 io.AddMousePosEvent(currentX, currentY);
-
-                if (isDragging && io.WantCaptureMouse) {
-                    float deltaX = currentX - lastX;
-                    float deltaY = currentY - lastY;
-                    float totalDeltaX = currentX - dragStartX;
-                    float totalDeltaY = currentY - dragStartY;
-
-                    // Determine drag direction if not yet determined
-                    if (dragDirection == 0) {
-                        // Lock into a direction once movement exceeds threshold
-                        if (fabs(totalDeltaX) > DIRECTION_THRESHOLD ||
-                            fabs(totalDeltaY) > DIRECTION_THRESHOLD) {
-                            if (fabs(totalDeltaX) > fabs(totalDeltaY)) {
-                                dragDirection = 1; // Horizontal
-                            } else {
-                                dragDirection = 2; // Vertical
-                            }
-                        }
-                    }
-
-                    // Only trigger scrolling for vertical drags
-                    if (dragDirection == 2) {
-                        float scrollY = deltaY * 0.007f;
-                        if (fabsf(scrollY) > 0.0f) {
-                            io.AddMouseWheelEvent(0.0f, scrollY);
-                        }
-                    }
-
-                    lastX = currentX;
-                    lastY = currentY;
-                    return true;
-                }
 
                 lastX = currentX;
                 lastY = currentY;
-                if (io.WantCaptureMouse) return true;
-                break;
+
+                // Check ImGuizmo state during movement
+                imguizmoActive = ImGuizmo::IsOver() || ImGuizmo::IsUsing();
+
+                return io.WantCaptureMouse || imguizmoActive;
         }
 
         return false;
     }
-    void VeImGui::updateImGuiTransform(uint32_t displayWidth, uint32_t displayHeight, Orientation currentOrientation){
-        ImGuiIO& io = ImGui::GetIO();
-        int width = fmin(displayWidth, displayHeight);
-        int height = fmax(displayWidth, displayHeight);
-        // Reset any previous transform
-        io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
-
-        switch (currentOrientation) {
-            case Orientation::PORTRAIT:
-                io.DisplaySize = ImVec2(width, height);
-                break;
-
-            case Orientation::LANDSCAPE_LEFT:
-                // Rotate 90 degrees counter-clockwise
-                io.DisplaySize = ImVec2(width, height);
-                io.DisplayFramebufferScale = ImVec2(-1.0f, 1.0f);
-                break;
-
-            case Orientation::LANDSCAPE_RIGHT:
-                // Rotate 90 degrees clockwise
-                io.DisplaySize = ImVec2(width, displayWidth);
-                io.DisplayFramebufferScale = ImVec2(1.0f, -1.0f);
-                break;
-
-            case Orientation::PORTRAIT_REVERSED:
-                // Upside-down portrait
-                io.DisplaySize = ImVec2(displayWidth, height);
-                io.DisplayFramebufferScale = ImVec2(-1.0f, -1.0f);
-                break;
-        }
-        LOGI("Display size: %f, %f to update imgui orientation", io.DisplaySize.x, io.DisplaySize.y);
-    }
     void VeImGui::cleanUpImGui(){
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplAndroid_Shutdown();

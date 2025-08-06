@@ -121,7 +121,7 @@ namespace ve{
                 for (size_t i = 0; i < sampler.timeStamps.size(); i++) {
                     timeStamps += std::to_string(sampler.timeStamps[i]) + " ";
                 }
-                LOGE("No keyframe found for current time %f", currentKeyFrameTime);
+//                LOGE("No keyframe found for current time %f", currentKeyFrameTime);
 //                LOGI("Available keyframe times: %s", timeStamps.c_str());
 
             }

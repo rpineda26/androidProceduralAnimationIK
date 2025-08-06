@@ -44,6 +44,7 @@ namespace ve{
             float getCurrentTime() const{return currentKeyFrameTime - firstKeyFrameTime;}
             float getLastKeyFrameTime() const{return lastKeyFrameTime;}
             float getFirstKeyFrameTime() const{return firstKeyFrameTime;}
+
             std::string const& getName() const{return name;}
             bool getIsRepeat()const {return isRepeat;}
             std::vector<float> getKeyframeTimes();
