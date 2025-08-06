@@ -1,3 +1,25 @@
 <resources>
     <string name="app_name">VulkanAndroid</string>
+    <string name="change_animations">Change animations</string>
+    <string name="jump_backward_in_time_frame">Jump backward in time frame</string>
+    <string name="toggle_play_or_pause">Toggle play or pause.</string>
+    <string name="jump_forward_in_time_frame">Jump forward in time frame.</string>
+    <string name="edit_skeletal_vertices">Edit skeletal vertices</string>
+    <string name="change_model_transform">Change model transform</string>
+    <string name="toggle_camera_preview">Toggle camera preview.</string>
+    <string name="capture_photo">Capture photo.</string>
+    <string name="change_camera_transform">Change camera transform.</string>
+    <string name="change_dog_breed_model">Change dog breed model.</string>
+    <string name="toggle_to_preview_dropdown_buttons">Toggle to preview dropdown buttons.</string>
+    <string name="toggle_to_view_skeletal_joints_and_bones_overlay">Toggle to view skeletal joints and bones overlay.</string>
+    <string name="sensitivity">Sensitivity</string>
+    <string name="camera">Camera</string>
+    <string name="menu">Menu</string>
+    <string name="xray">Xray</string>
+    <string name="select_dog">Select Dog</string>
+    <string name="edit_view">Edit View</string>
+    <string name="edit_trs">Edit TRS</string>
+    <string name="edit_joints">Edit Joints</string>
+    <string name="animation">Animation</string>
+    <string name="ask_for_help">Ask for help</string>
 </resources>
